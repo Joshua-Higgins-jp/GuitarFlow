@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List
 
 from src.collectors.collector_models import ImageMetadata, ImageLabel
-from src.collectors.pixabay import PixabayCollector
+from src.collectors.pixabay_collector import PixabayCollector
 from src.directory_manager import DirectoryManager
 from src.utils.read_dotenv import load_env_value_local
 from loguru import logger
