@@ -1,3 +1,3 @@
 # GuitarFlow
-A project to demonstrate fundamental Machine Learning and MLOps techniques and methodologies to demonstrate my interest in the field.
-I will be slowly updating this project!
+A project to demonstrate basic Machine Learning and MLOps techniques and methodologies.
+I will be steadily updating this project!
