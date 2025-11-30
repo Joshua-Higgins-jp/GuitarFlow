@@ -1,1 +1,0 @@
-HELLO_WORLD: str = "HELLO_WORLD"
