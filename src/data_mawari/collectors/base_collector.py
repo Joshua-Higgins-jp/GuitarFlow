@@ -7,9 +7,9 @@ from typing import List, Optional
 from loguru import logger
 from requests import get, Response
 
-from src.collectors.collector_models import ImageMetadata
 from src.config import RATE_LIMIT_SLEEP_BETWEEN_IMAGE_DOWNLOADS_SECS
-from src.directory_manager import DATA_ROOT_DIR
+from src.data_mawari.collectors.collector_models import ImageMetadata
+from src.data_mawari.data_dir_manager import DATA_ROOT_DIR
 
 
 class BaseCollector(ABC):
@@ -46,20 +46,31 @@ class BaseCollector(ABC):
             delay_seconds: float = RATE_LIMIT_SLEEP_BETWEEN_IMAGE_DOWNLOADS_SECS
     ) -> List[Path]:
         """Download images, return saved paths"""
-
-        # TODO: if an image already exists, skip the sleep.
         downloaded_paths: List[Path] = []
 
         for i, metadata in enumerate(metadata_list):
-            logger.info(f"Downloading {i+1}/{len(metadata_list)}: {metadata.source_id}")
+            logger.info(f"Processing {i + 1}/{len(metadata_list)}: {metadata.source_id}")
 
-            path: Path = self._download_single_image(metadata=metadata)
+            # Build filename and path to check existence
+            filename: str = f"{self.service_name.lower()}_{metadata.source_id}.jpg"
+            label_dir: Path = self.data_dir / "raw" / self.service_name.lower() / metadata.label.value.lower()
+            label_dir.mkdir(parents=True, exist_ok=True)
+            filepath: Path = label_dir / filename
+
+            # Skip if already exists
+            if filepath.exists():
+                logger.debug(f"Image already exists, skipping: {filepath}")
+                downloaded_paths.append(filepath)
+                continue  # Skip sleep since we didn't hit the API
+
+            # Download the image
+            path: Optional[Path] = self._download_single_image(metadata=metadata)
             if path:
                 downloaded_paths.append(path)
 
-            # Rate limiting courtesy
-            if i < len(metadata_list) - 1:
-                sleep(delay_seconds)
+                # Rate limiting courtesy - only after actual download
+                if i < len(metadata_list) - 1:
+                    sleep(delay_seconds)
 
         logger.info(f"Downloaded {len(downloaded_paths)}/{len(metadata_list)} images")
         return downloaded_paths
@@ -70,18 +81,10 @@ class BaseCollector(ABC):
     ) -> Optional[Path]:
         """Download one image, return path or None"""
         try:
-            # Build filename: {service}_{source_id}.jpg
+            # Build filename
             filename: str = f"{self.service_name}_{metadata.source_id}.jpg"
-
-            # Determine subdirectory
             label_dir: Path = self.data_dir / "raw" / self.service_name.lower() / metadata.label.value.lower()
-            label_dir.mkdir(parents=True, exist_ok=True)
             filepath: Path = label_dir / filename
-
-            # Skip if already exists
-            if filepath.exists():
-                logger.debug(f"Image already exists: {filepath}")
-                return filepath
 
             # Download
             response: Response = get(
