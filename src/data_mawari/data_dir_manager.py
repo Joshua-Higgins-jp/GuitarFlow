@@ -3,10 +3,10 @@ from pathlib import Path
 
 from loguru import logger
 
-from src.collectors.collector_models import ImageLabel, ImageSource
+from src.data_mawari.collectors.collector_models import ImageLabel, ImageSource
 
-DATA_ROOT_DIR: Path = Path(__file__).resolve().parent.parent / "data"
-# print(DATA_ROOT_DIR)
+DATA_ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
+# print(f"actual image data root directory is:\n---> `{DATA_ROOT_DIR}`")
 
 
 class DatasetStage(Enum):
@@ -23,7 +23,7 @@ class SplitType(Enum):
     TEST = "test"
 
 
-class DirectoryManager:
+class DataDirectoryManager:
     """
     Manages directory structure for ML image collection and provides path access.
 
@@ -63,7 +63,7 @@ class DirectoryManager:
             data_root: Path = DATA_ROOT_DIR
     ) -> None:
         """
-        Initialize the DirectoryManager.
+        Initialize the DataDirectoryManager.
 
         Args:
             init_data_dirs: If True, automatically creates all directory structures.
