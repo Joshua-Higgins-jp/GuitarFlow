@@ -20,8 +20,6 @@ I code, and I play acoustic guitar. So it's interesting. Also:
 - **Build something tangible** that showcases these skills
 - **Document the process** as I go, making this a living portfolio piece
 
-The guitar classifier is just the vehicle—what matters is the engineering practices around it.
-
 ---
 
 ## Project Stages
@@ -58,7 +56,7 @@ _Note: This README updates as the project progresses_
 ## Tech Stack
 
 **Current:**
-- Python 3.14 (shiny new things! and native uuid7 support!)
+- `Python 3.14` (shiny new things! and native uuid7 support!)
 - `requests` - API calls
 - `SQLite` - Image metadata
 - `loguru` - Logging
@@ -96,7 +94,3 @@ By the end of this, I'll have demonstrated:
 ## License
 
 MIT License
-
----
-
-_This is a learning project and portfolio piece. Updates happen as I build._
