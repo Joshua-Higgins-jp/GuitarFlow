@@ -4,8 +4,8 @@ from urllib.parse import urlencode
 from loguru import logger
 from requests import get, Response
 
-from src.data_mawari.collectors.base_collector import BaseCollector
-from src.data_mawari.collectors.collector_models import ImageSource, ImageLabel, ImageMetadata
+from src.data_collecting.collectors.base_collector import BaseCollector
+from src.data_collecting.collectors.collector_models import ImageSource, ImageLabel, ImageMetadata
 from src.utils.get_dt_now import get_dt_now
 
 

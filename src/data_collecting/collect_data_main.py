@@ -4,9 +4,9 @@ from typing import List
 from loguru import logger
 
 from src.config import LOG_DIR
-from src.data_mawari.collectors.collector_models import ImageMetadata, ImageLabel
-from src.data_mawari.collectors.pixabay_collector import PixabayCollector
-from src.data_mawari.data_dir_manager import DataDirectoryManager
+from src.data_collecting.collectors.collector_models import ImageMetadata, ImageLabel
+from src.data_collecting.collectors.pixabay_collector import PixabayCollector
+from src.data_collecting.data_dir_manager import DataDirectoryManager
 from src.logging_manager import LoggerManager
 from src.utils.read_dotenv import load_env_value_local
 

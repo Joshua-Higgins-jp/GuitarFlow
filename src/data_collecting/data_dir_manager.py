@@ -3,7 +3,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from src.data_mawari.collectors.collector_models import ImageLabel, ImageSource
+from src.data_collecting.collectors.collector_models import ImageLabel, ImageSource
 
 DATA_ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
 # print(f"actual image data root directory is:\n---> `{DATA_ROOT_DIR}`")

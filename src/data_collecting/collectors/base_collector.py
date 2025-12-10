@@ -8,8 +8,8 @@ from loguru import logger
 from requests import get, Response
 
 from src.config import RATE_LIMIT_SLEEP_BETWEEN_IMAGE_DOWNLOADS_SECS
-from src.data_mawari.collectors.collector_models import ImageMetadata
-from src.data_mawari.data_dir_manager import DATA_ROOT_DIR
+from src.data_collecting.collectors.collector_models import ImageMetadata
+from src.data_collecting.data_dir_manager import DATA_ROOT_DIR
 
 
 class BaseCollector(ABC):
