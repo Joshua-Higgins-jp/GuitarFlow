@@ -69,7 +69,7 @@ class DataDirectoryManager:
             init_data_dirs: If True, automatically creates all directory structures.
             data_root: Root directory path for data storage.
         """
-        self.class_log_pfx: str = "DIRECTORY MANAGER"
+        self.class_log_pfx: str = "DATA DIRECTORY MANAGER"
         self.data_root: Path = data_root
 
         if init_data_dirs:
