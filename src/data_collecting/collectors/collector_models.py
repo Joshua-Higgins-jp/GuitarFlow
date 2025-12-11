@@ -30,5 +30,4 @@ class ImageMetadata(BaseModel):
     width: Optional[int] = None
     height: Optional[int] = None
     filesize: Optional[int] = None
-
-
+    is_trainable: bool = True
