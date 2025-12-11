@@ -18,7 +18,13 @@ def load_env_value_local(key_name: str) -> str:
         KeyError: If the key is not found in the environment
         ValueError: If the key exists but is empty
     """
-    load_dotenv(dotenv_path=find_dotenv(raise_error_if_not_found=True))
+    load_dotenv(
+        dotenv_path=find_dotenv(
+            filename=".env",
+            raise_error_if_not_found=True
+        ),
+        verbose=True
+    )
 
     value: Optional[str] = getenv(key=key_name)
 
