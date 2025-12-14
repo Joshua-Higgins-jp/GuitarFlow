@@ -5,48 +5,63 @@ from loguru import logger
 from requests import get, Response
 
 from src.data_collecting.collectors.base_collector import BaseCollector
-from src.data_collecting.collectors.collector_models import ImageSource, ImageLabel, ImageMetadata
-from src.utils.get_dt_now import get_dt_now
+from src.data_collecting.collectors.collector_models_enums import ImageSource, ImageLabel, ImageMetadata
+from src.utils.get_dt_now import get_dt_now_jst
 
 
 class PixabayCollector(BaseCollector):
     """Pixabay API image collector"""
-
-    # should be ClassVar[str]
-    BASE_URL = "https://pixabay.com/api/"
-
-    def __init__(self, api_key: str):
+    def __init__(
+            self,
+            api_key: str,
+            per_page: int,
+            min_width: int,
+            min_height: int
+    ):
         super().__init__(
             api_key=api_key,
-            service_name=ImageSource.PIXABAY.value
+            service_name=ImageSource.PIXABAY
         )
+        if not isinstance(per_page, int):
+            raise TypeError("Per_page must be a integer")
+        if not isinstance(min_width, int):
+            raise TypeError("min_width must be a integer")
+        if not isinstance(min_height, int):
+            raise TypeError("min_height must be a integer")
+
+        self.per_page: int = per_page
+        self.min_width: int = min_width  # 640
+        self.min_height: int = min_height  # 480
+
+        self.base_url: str = "https://pixabay.com/api/"
 
     def search(
             self,
             query: str,
             label: ImageLabel,
-            max_results: int = 100,
-            min_width: int = 640,
-            min_height: int = 480
+            max_results: int
     ) -> List[ImageMetadata]:
         """Search Pixabay for images"""
+        if not isinstance(query, str):
+            raise TypeError("Query must be a string")
+
+        total_pages: int = (max_results + self.per_page - 1) // self.per_page
+
         metadata_list: List[ImageMetadata] = []
-        per_page: int = 200  # Max allowed by API
-        total_pages: int = (max_results + per_page - 1) // per_page
 
         logger.info(f"Searching Pixabay: query='{query}', label={label.value}, max={max_results}")
 
         for page in range(1, total_pages + 1):
             url: str = self._build_search_url(
                 query=query,
-                page=page,
-                per_page=per_page,
-                min_width=min_width,
-                min_height=min_height
+                page=page
             )
 
             try:
-                response: Response = get(url, timeout=30)
+                response: Response = get(
+                    url=url,
+                    timeout=30
+                )
                 response.raise_for_status()
                 data = response.json()
 
@@ -64,7 +79,7 @@ class PixabayCollector(BaseCollector):
                         url=hit['largeImageURL'],  # 1280px max
                         search_query=query,
                         license="Pixabay License",
-                        downloaded_at=get_dt_now(),
+                        downloaded_at=get_dt_now_jst(),
                         width=hit.get('imageWidth'),
                         height=hit.get('imageHeight'),
                         filesize=hit.get('imageSize')
@@ -75,7 +90,7 @@ class PixabayCollector(BaseCollector):
                     break
 
                 # Check if we've exhausted results
-                if len(hits) < per_page:
+                if len(hits) < self.per_page:
                     logger.info("No more results available")
                     break
 
@@ -89,20 +104,17 @@ class PixabayCollector(BaseCollector):
     def _build_search_url(
             self,
             query: str,
-            page: int,
-            per_page: int = 200,
-            min_width: int = 640,
-            min_height: int = 480
+            page: int
     ) -> str:
         """Build Pixabay API request URL"""
         params = {
             'key': self.api_key,
             'q': query,
             'image_type': 'photo',
-            'min_width': min_width,
-            'min_height': min_height,
-            'per_page': per_page,
+            'min_width': self.min_width,
+            'min_height': self.min_height,
+            'per_page': self.per_page,
             'page': page,
             'safesearch': 'true'
         }
-        return f"{self.BASE_URL}?{urlencode(params)}"
+        return f"{self.base_url}?{urlencode(params)}"
