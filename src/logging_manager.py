@@ -1,10 +1,9 @@
 import sys
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from loguru import logger
 
-from src.utils.get_dt_now import get_dt_now
+from src.utils.get_dt_now import get_dt_now_jst
 
 
 class LoggerManager:
@@ -44,7 +43,7 @@ class LoggerManager:
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate timestamp for this session
-        timestamp: str = get_dt_now(tz=ZoneInfo('Asia/Tokyo')).strftime("%Y%m%d_%H%M%S")
+        timestamp: str = get_dt_now_jst().strftime("%Y%m%d_%H%M%S")
 
         # Create filename (includes JST suffix)
         self.log_path: Path = self.log_dir / f"log_{timestamp}_JST_{session_name}.log"
