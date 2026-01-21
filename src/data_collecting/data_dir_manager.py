@@ -3,9 +3,11 @@ from pathlib import Path
 
 from loguru import logger
 
-from src.data_collecting.collectors.collector_models import ImageLabel, ImageSource
+from src.data_collecting.collectors.collector_models_enums import ImageLabel, ImageSource
 
 DATA_ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
+DATABASE_PATH: Path = DATA_ROOT_DIR / "metadata.db"
+# TODO: make a DB class that actually makes and inits the database?
 # print(f"actual image data root directory is:\n---> `{DATA_ROOT_DIR}`")
 
 
