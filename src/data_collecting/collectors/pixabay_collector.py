@@ -24,8 +24,10 @@ class PixabayCollector(BaseCollector):
         )
         if not isinstance(per_page, int):
             raise TypeError("Per_page must be a integer")
+
         if not isinstance(min_width, int):
             raise TypeError("min_width must be a integer")
+
         if not isinstance(min_height, int):
             raise TypeError("min_height must be a integer")
 
@@ -75,14 +77,16 @@ class PixabayCollector(BaseCollector):
                     metadata = ImageMetadata(
                         source=ImageSource.PIXABAY,
                         label=label,
-                        source_id=str(hit['id']),
-                        url=hit['largeImageURL'],  # 1280px max
+                        image_id=str(hit['id']),
+                        image_url=hit['largeImageURL'],  # 1280px max
                         search_query=query,
+                        searched_at=get_dt_now_jst(),
                         license="Pixabay License",
-                        downloaded_at=get_dt_now_jst(),
                         width=hit.get('imageWidth'),
                         height=hit.get('imageHeight'),
-                        filesize=hit.get('imageSize')
+                        filesize=hit.get('imageSize'),
+                        is_downloaded=False,
+                        downloaded_at=None
                     )
                     metadata_list.append(metadata)
 
