@@ -21,13 +21,14 @@ class ImageMetadata(BaseModel):
     source: ImageSource
     label: ImageLabel
 
-    source_id: str
-    url: str
+    image_id: str
+    image_url: str
     search_query: str
-    license: str
-    downloaded_at: datetime
+    searched_at: datetime
+    license: Optional[str]
 
     width: Optional[int] = None
     height: Optional[int] = None
     filesize: Optional[int] = None
-    is_trainable: bool = True
+    is_downloaded: bool = False
+    downloaded_at: Optional[datetime] = None
