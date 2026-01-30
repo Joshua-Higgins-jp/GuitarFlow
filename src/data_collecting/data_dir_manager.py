@@ -6,10 +6,8 @@ from loguru import logger
 from src.data_collecting.collectors.collector_models_enums import ImageLabel, ImageSource
 
 DATA_ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
-DATABASE_PATH: Path = DATA_ROOT_DIR / "metadata.db"
-# TODO: make a DB class that actually makes and inits the database?
-# print(f"actual image data root directory is:\n---> `{DATA_ROOT_DIR}`")
-
+DATABASE_PATH: Path = DATA_ROOT_DIR / "image_metadata.db"
+# TODO: start a new database images_data.db
 
 class DatasetStage(Enum):
     """Stages in the ML data pipeline."""
