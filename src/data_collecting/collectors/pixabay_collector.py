@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any, Dict
 from urllib.parse import urlencode
 
 from loguru import logger
@@ -25,6 +25,9 @@ class PixabayCollector(BaseCollector):
         if not isinstance(per_page, int):
             raise TypeError("Per_page must be a integer")
 
+        if not 0 < per_page <= 200:
+            raise ValueError("As per the API specs, Pixabay's per_page must be between 0 and 200")
+
         if not isinstance(min_width, int):
             raise TypeError("min_width must be a integer")
 
@@ -36,6 +39,24 @@ class PixabayCollector(BaseCollector):
         self.min_height: int = min_height  # 480
 
         self.base_url: str = "https://pixabay.com/api/"
+
+    def _build_search_url(
+            self,
+            query: str,
+            page: int
+    ) -> str:
+        """Build Pixabay API request URL"""
+        params = {
+            'key': self.api_key,
+            'q': query,
+            'image_type': 'photo',
+            'min_width': self.min_width,
+            'min_height': self.min_height,
+            'per_page': self.per_page,
+            'page': page,
+            'safesearch': 'true'
+        }
+        return f"{self.base_url}?{urlencode(params)}"
 
     def search(
             self,
@@ -65,7 +86,7 @@ class PixabayCollector(BaseCollector):
                     timeout=30
                 )
                 response.raise_for_status()
-                data = response.json()
+                data: Dict[str, Any] = response.json()
 
                 hits = data.get('hits', [])
                 logger.info(f"Page {page}: Found {len(hits)} images")
@@ -104,21 +125,3 @@ class PixabayCollector(BaseCollector):
 
         logger.info(f"Found {len(metadata_list)} images for '{query}'")
         return metadata_list
-
-    def _build_search_url(
-            self,
-            query: str,
-            page: int
-    ) -> str:
-        """Build Pixabay API request URL"""
-        params = {
-            'key': self.api_key,
-            'q': query,
-            'image_type': 'photo',
-            'min_width': self.min_width,
-            'min_height': self.min_height,
-            'per_page': self.per_page,
-            'page': page,
-            'safesearch': 'true'
-        }
-        return f"{self.base_url}?{urlencode(params)}"
