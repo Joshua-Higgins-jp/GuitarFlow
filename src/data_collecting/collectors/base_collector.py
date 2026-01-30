@@ -2,9 +2,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
-from loguru import logger
-from requests import get, Response, HTTPError
-
 from src.data_collecting.collectors.collector_models_enums import ImageMetadata, ImageSource
 from src.data_collecting.data_dir_manager import DATA_ROOT_DIR
 
@@ -55,7 +52,7 @@ class BaseCollector(ABC):
         Generate filename for an image based on its metadata.
 
         Args:
-            metadata: ImageMetadata object containing source and ID info
+            metadata: Image metadata object
 
         Returns:
             Filename string in format: {service}_{source_id}.jpg
@@ -75,44 +72,3 @@ class BaseCollector(ABC):
         filename: str = self._generate_filename(metadata=metadata)
         label_dir: Path = self.data_dir / "raw" / self.service_name.value.lower() / metadata.label.value.lower()
         return label_dir / filename
-
-    def download_single_image(
-            self,
-            metadata: ImageMetadata
-    ) -> bool:
-        """
-        Download a single image from metadata.
-
-        Args:
-            metadata: ImageMetadata containing URL and save location info
-
-        Returns:
-            True if download succeeded, False otherwise
-        """
-        try:
-            # Get filepath using centralized method
-            filepath: Path = self._get_filepath(metadata=metadata)
-
-            # Download
-            response: Response = get(
-                url=metadata.image_url,
-                timeout=30,
-                stream=True
-            )
-            response.raise_for_status()
-
-            # Save (avoids memory writes)
-            with open(filepath, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-
-            logger.info(f"Downloaded: {filepath}")
-            return True
-
-        except HTTPError as http_err:
-            logger.error(f"HTTP error occurred: {http_err}")
-            return False
-
-        except Exception as e:
-            logger.error(f"Failed to download {metadata.image_url}: {e}")
-            return False
