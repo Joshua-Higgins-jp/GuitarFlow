@@ -6,12 +6,14 @@ from pydantic import BaseModel
 
 
 class ImageSource(Enum):
+    """image source is the site name for where the image originated"""
     PIXABAY = "PIXABAY"
     UNSPLASH = "UNSPLASH"
     PEXELS = "PEXELS"
 
 
 class ImageLabel(Enum):
+    """image is labeled as either electric or acoustic"""
     ELECTRIC = "ELECTRIC"
     ACOUSTIC = "ACOUSTIC"
 
