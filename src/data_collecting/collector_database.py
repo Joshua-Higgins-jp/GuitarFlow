@@ -1,8 +1,8 @@
-import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List, Dict, Generator
+from sqlite3 import Connection, connect, IntegrityError, Row
+from typing import Optional, List, Dict, Iterator
 
 from loguru import logger
 
@@ -30,13 +30,12 @@ class ImageMetadataDBManager:
 
         self.db_path: Path = db_path
         self._init_schema()
-        logger.info(f"Initialised metadata database at {db_path}")
 
     @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
+    def _get_connection(self) -> Iterator[Connection]:
         """Context manager for database connections with row factory."""
-        conn: sqlite3.Connection = sqlite3.connect(database=self.db_path)
-        conn.row_factory = sqlite3.Row
+        conn: Connection = connect(database=self.db_path)
+        conn.row_factory = Row
         try:
             yield conn
             conn.commit()
@@ -51,25 +50,27 @@ class ImageMetadataDBManager:
 
     def _init_schema(self) -> None:
         """Create the image_metadata table if it doesn't exist."""
-        with self._get_connection() as conn:  # pycharm is telling me "self parameter unfilled"
+        with self._get_connection() as conn:
             conn.execute(
-                """CREATE TABLE IF NOT EXISTS image_metadata (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    source TEXT NOT NULL,
-                    label TEXT NOT NULL,
-                    image_id TEXT NOT NULL UNIQUE,
-                    image_url TEXT NOT NULL,
-                    search_query TEXT NOT NULL,
-                    searched_at TIMESTAMP NOT NULL,
-                    license TEXT DEFAULT NULL,
-                    width INTEGER DEFAULT NULL,
-                    height INTEGER DEFAULT NULL,
-                    filesize INTEGER DEFAULT NULL,
-                    is_downloaded BOOLEAN DEFAULT 0,
-                    downloaded_at TIMESTAMP DEFAULT NULL
-                )
-            """
-        )
+                """CREATE TABLE IF NOT EXISTS image_metadata
+                   (
+                       id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                       source        TEXT      NOT NULL,
+                       label         TEXT      NOT NULL,
+                       image_id      TEXT      NOT NULL UNIQUE,
+                       image_url     TEXT      NOT NULL,
+                       search_query  TEXT      NOT NULL,
+                       searched_at   TIMESTAMP NOT NULL,
+                       license       TEXT      DEFAULT NULL,
+                       width         INTEGER   DEFAULT NULL,
+                       height        INTEGER   DEFAULT NULL,
+                       filesize      INTEGER   DEFAULT NULL,
+                       is_downloaded BOOLEAN   DEFAULT 0,
+                       downloaded_at TIMESTAMP DEFAULT NULL
+                   )
+                """
+            )
+
             # Create indices for common queries
             conn.execute("""
                          CREATE INDEX IF NOT EXISTS idx_source
@@ -87,6 +88,8 @@ class ImageMetadataDBManager:
                          CREATE INDEX IF NOT EXISTS idx_is_downloaded
                              ON image_metadata(is_downloaded)
                          """)
+
+        logger.info(f"Successfully Initialized database schema at {self.db_path}")
 
     def insert(self, metadata: ImageMetadata) -> int:
         """
@@ -142,7 +145,10 @@ class ImageMetadataDBManager:
     def get_all(
             self,
             source: Optional[ImageSource] = None,
-            label: Optional[ImageLabel] = None
+            label: Optional[ImageLabel] = None,
+            limit: Optional[int] = None,
+            offset: int = 0,
+            only_not_downloaded: bool = False
     ) -> List[ImageMetadata]:
         """
         Retrieve all metadata, optionally filtered by source and/or label.
@@ -150,29 +156,47 @@ class ImageMetadataDBManager:
         Args:
             source: Filter by image source (optional)
             label: Filter by image label (optional)
+            limit: Maximum number of records to return (optional, for pagination)
+            offset: Number of records to skip (default: 0, for pagination)
+            only_not_downloaded: If True, only return images that haven't been downloaded yet
 
         Returns:
             List of ImageMetadata objects
         """
-        query = "SELECT * FROM image_metadata WHERE 1=1"
+        query = "SELECT * FROM image_metadata"
         params = []
+        conditions = []
 
         if source is not None:
-            query += " AND source = ?"
+            conditions.append("source = ?")
             params.append(source.value)
 
         if label is not None:
-            query += " AND label = ?"
+            conditions.append("label = ?")
             params.append(label.value)
 
-        query += " ORDER BY downloaded_at DESC"
+        if only_not_downloaded:
+            conditions.append("is_downloaded = 0")
 
-        with self._get_connection() as conn:  # pycharm is telling me "self parameter unfilled"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " ORDER BY searched_at DESC"
+
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        if offset > 0:
+            query += " OFFSET ?"
+            params.append(offset)
+
+        with self._get_connection() as conn:
             rows = conn.execute(query, params).fetchall()
             return [self._row_to_metadata(row) for row in rows]
 
     @staticmethod
-    def _row_to_metadata(row: sqlite3.Row) -> ImageMetadata:
+    def _row_to_metadata(row: Row) -> ImageMetadata:
         """
         Convert a database row to an ImageMetadata object.
 
@@ -338,9 +362,36 @@ class ImageMetadataDBManager:
                         )
                     )
                     stats['inserted'] += 1
-                except sqlite3.IntegrityError:
+                except IntegrityError:
                     logger.debug(f"Image {metadata.image_id} already exists, skipping")
                     stats['skipped'] += 1
 
         logger.info(f"Batch insert: {stats['inserted']} inserted, {stats['skipped']} skipped")
         return stats
+
+    def get_pending_downloads(
+            self,
+            limit: int = 100,
+            offset: int = 0,
+            source: Optional[ImageSource] = None,
+            label: Optional[ImageLabel] = None
+    ) -> List[ImageMetadata]:
+        """
+        Get images that haven't been downloaded yet, ready for batch downloading.
+    
+        Args:
+            limit: Maximum number of records to return (default: 100)
+            offset: Number of records to skip (default: 0)
+            source: Filter by image source (optional)
+            label: Filter by image label (optional)
+    
+        Returns:
+            List of ImageMetadata objects for undownloaded images
+        """
+        return self.get_all(
+            source=source,
+            label=label,
+            limit=limit,
+            offset=offset,
+            only_not_downloaded=True
+        )
