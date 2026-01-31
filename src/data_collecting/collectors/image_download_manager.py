@@ -110,6 +110,12 @@ class ImageDownloadManager:
             )
             response.raise_for_status()
 
+            if response.status_code == 429:
+                logger.warning("Rate limit hit! Consider increasing sleep time or reducing batch size")
+                # retry_after = response.headers.get('Retry-After', '300')
+                # logger.warning(f"Suggested retry after: {retry_after} seconds")
+                return False
+
             # Save image in chunks to avoid memory issues
             with open(destination_filepath, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
@@ -140,7 +146,7 @@ class ImageDownloadManager:
 
     def _random_sleep(self) -> None:
         """Sleep for a random duration between min_sleep and max_sleep."""
-        sleep_duration: float = uniform(a=self.min_sleep, b=self.max_sleep)
+        sleep_duration: int = int(uniform(a=self.min_sleep, b=self.max_sleep))
         logger.debug(f"Sleeping for {sleep_duration} seconds...")
         sleep(sleep_duration)
 
