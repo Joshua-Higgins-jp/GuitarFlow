@@ -50,6 +50,7 @@ class PixabayCollector(BaseCollector):
             'key': self.api_key,
             'q': query,
             'image_type': 'photo',
+            'category': 'music',
             'min_width': self.min_width,
             'min_height': self.min_height,
             'per_page': self.per_page,
