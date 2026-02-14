@@ -16,7 +16,7 @@ def load_env_value_local(key_name: str) -> str:
 
     Raises:
         KeyError: If the key is not found in the environment
-        ValueError: If the key exists but is empty
+        ValueError: If the key exists but is empty or contains only whitespace
     """
     load_dotenv(
         dotenv_path=find_dotenv(
@@ -31,7 +31,11 @@ def load_env_value_local(key_name: str) -> str:
     if value is None:
         raise KeyError(f"Environment variable `{key_name}` not found")
 
-    if not value:  # Catches empty strings
-        raise ValueError(f"Environment variable `{key_name}` exists, but is assigned an empty string")
+    value = value.strip()  # Remove leading/trailing whitespace
+
+    if not value:
+        raise ValueError(
+            f"Environment variable `{key_name}` exists, but is empty or contains only whitespace"
+        )
 
     return value
