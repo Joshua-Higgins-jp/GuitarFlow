@@ -1,8 +1,7 @@
-from typing import List, Tuple
+from typing import List
 
 from data_collecting.collectors.collector_models_enums import ImageLabel, ImageMetadata, ImageSource
-from data_collecting.collectors.image_download_manager import ImageDownloadManager
-from data_collecting.collectors.pixabay.pixabay_collector import PixabayCollector
+from deprecated.image_download_manager import ImageDownloadManager
 from src.config import LOG_DIR
 from src.data_collecting.collector_database import ImageMetadataDBManager
 from src.data_collecting.data_dir_manager import DataDirectoryManager, DATABASE_PATH
@@ -29,29 +28,29 @@ def data_collection_main():
     pixabay_api_key: str = load_env_value_local(key_name='PIXABAY_API_KEY')
 
     # Queries and Labels
-    pixabay_queries_and_labels: List[Tuple[str, ImageLabel]] = [
-        ("electric guitar", ImageLabel.ELECTRIC),
-        ("acoustic guitar", ImageLabel.ACOUSTIC)
-    ]
-
-    # Collector Inits
-    pixabay_collector = PixabayCollector(
-        api_key=pixabay_api_key,
-        results_per_page=200,
-        min_width=640,
-        min_height=480
-    )
-
-    pixabay_collector.query_and_update_database(
-        database_manager=db_manager,
-        queries_and_labels=pixabay_queries_and_labels
-    )
+    # pixabay_queries_and_labels: List[Tuple[str, ImageLabel]] = [
+    #     ("electric guitar", ImageLabel.ELECTRIC),
+    #     ("acoustic guitar", ImageLabel.ACOUSTIC)
+    # ]
+    #
+    # # Collector Inits
+    # pixabay_collector = PixabayCollector(
+    #     api_key=pixabay_api_key,
+    #     results_per_page=200,
+    #     min_width=640,
+    #     min_height=480
+    # )
+    #
+    # pixabay_collector.query_and_update_database(
+    #     database_manager=db_manager,
+    #     queries_and_labels=pixabay_queries_and_labels
+    # )
 
     # Start Downloading Files
     list_of_pending_downloads: List[ImageMetadata] = db_manager.get_pending_downloads(
         limit=50,  # conservative starting point
         source=ImageSource.PIXABAY,
-        label=ImageLabel.ELECTRIC,
+        label=ImageLabel.ACOUSTIC,
     )
 
     image_download_manager.download_batch(
