@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -23,14 +22,13 @@ class ImageMetadata(BaseModel):
     source: ImageSource
     label: ImageLabel
 
-    image_id: str
+    image_id: str  # id from the image source, not internal id
     image_url: str
     search_query: str
     searched_at: datetime
-    license: Optional[str]
+    license: str
 
-    width: Optional[int] = None
-    height: Optional[int] = None
-    filesize: Optional[int] = None
-    is_downloaded: bool = False
-    downloaded_at: Optional[datetime] = None
+    width: int = None
+    height: int = None
+    filesize_KB: int= None
+    downloaded_at: datetime = None
