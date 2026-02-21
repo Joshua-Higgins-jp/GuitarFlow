@@ -31,11 +31,9 @@ def load_env_value_local(key_name: str) -> str:
     if value is None:
         raise KeyError(f"Environment variable `{key_name}` not found")
 
-    value = value.strip()  # Remove leading/trailing whitespace
+    value: str = value.strip()  # Remove leading/trailing whitespace
 
     if not value:
-        raise ValueError(
-            f"Environment variable `{key_name}` exists, but is empty or contains only whitespace"
-        )
+        raise ValueError(f"Environment variable `{key_name}` exists, but is empty or contains only whitespace")
 
     return value
