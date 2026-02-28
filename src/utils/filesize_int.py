@@ -3,5 +3,7 @@ from pathlib import Path
 
 
 def get_filesize_bytes(filepath: Path) -> int:
-    """gets file size in bytes. assumes file already exists"""
+    """
+    Gets file size in bytes. Assumes file already exists.
+    """
     return getsize(filename=filepath)
