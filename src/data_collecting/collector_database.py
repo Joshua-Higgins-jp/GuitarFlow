@@ -3,10 +3,11 @@ from datetime import datetime
 from pathlib import Path
 from sqlite3 import Connection, connect, IntegrityError, Row
 from typing import Optional, List, Dict, Iterator
+from uuid import UUID
 
 from loguru import logger
 
-from src.data_collecting.collectors.collector_models_enums import ImageMetadata, ImageSource, ImageLabel
+from data_collecting.metadata_models_enums import ImageMetadata, ImageSource, ImageLabel
 
 
 class ImageMetadataDBManager:
@@ -54,24 +55,30 @@ class ImageMetadataDBManager:
             conn.execute(
                 """CREATE TABLE IF NOT EXISTS image_metadata
                    (
-                       id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                       source        TEXT      NOT NULL,
-                       label         TEXT      NOT NULL,
-                       image_id      TEXT      NOT NULL UNIQUE,
-                       image_url     TEXT      NOT NULL,
-                       search_query  TEXT      NOT NULL,
-                       searched_at   TIMESTAMP NOT NULL,
-                       license       TEXT      DEFAULT NULL,
-                       width         INTEGER   DEFAULT NULL,
-                       height        INTEGER   DEFAULT NULL,
-                       filesize      INTEGER   DEFAULT NULL,
-                       is_downloaded BOOLEAN   DEFAULT 0,
-                       downloaded_at TIMESTAMP DEFAULT NULL
+                       id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                       internal_id       TEXT      NOT NULL UNIQUE,
+                       source            TEXT      NOT NULL,
+                       label             TEXT      NOT NULL,
+                       source_id         TEXT      DEFAULT NULL,
+                       image_url         TEXT      DEFAULT NULL,
+                       original_filename TEXT      NOT NULL,
+                       search_query      TEXT      DEFAULT NULL,
+                       acquired_at       TIMESTAMP NOT NULL,
+                       ingested_at       TIMESTAMP NOT NULL,
+                       license           TEXT      DEFAULT NULL,
+                       width             INTEGER   NOT NULL,
+                       height            INTEGER   NOT NULL,
+                       filesize_bytes    INTEGER   NOT NULL,
+                       UNIQUE(source, source_id)
                    )
                 """
             )
 
             # Create indices for common queries
+            conn.execute("""
+                         CREATE INDEX IF NOT EXISTS idx_internal_id
+                             ON image_metadata(internal_id)
+                         """)
             conn.execute("""
                          CREATE INDEX IF NOT EXISTS idx_source
                              ON image_metadata(source)
@@ -81,15 +88,11 @@ class ImageMetadataDBManager:
                              ON image_metadata(label)
                          """)
             conn.execute("""
-                         CREATE INDEX IF NOT EXISTS idx_search_query
-                             ON image_metadata(search_query)
-                         """)
-            conn.execute("""
-                         CREATE INDEX IF NOT EXISTS idx_is_downloaded
-                             ON image_metadata(is_downloaded)
+                         CREATE INDEX IF NOT EXISTS idx_source_id
+                             ON image_metadata(source_id)
                          """)
 
-        logger.info(f"Successfully Initialized database schema at {self.db_path}")
+        logger.info(f"Successfully initialized database schema at {self.db_path}")
 
     def insert(self, metadata: ImageMetadata) -> int:
         """
@@ -102,44 +105,46 @@ class ImageMetadataDBManager:
             The row ID of the inserted record
 
         Raises:
-            sqlite3.IntegrityError: If image_id already exists
+            sqlite3.IntegrityError: If internal_id already exists or (source, source_id) conflicts
         """
         with self._get_connection() as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO image_metadata (
+                    internal_id,
                     source, 
                     label, 
-                    image_id, 
-                    image_url, 
+                    source_id,
+                    image_url,
+                    original_filename,
                     search_query,
-                    searched_at, 
+                    acquired_at,
+                    ingested_at,
                     license, 
                     width, 
                     height, 
-                    filesize,
-                    is_downloaded, 
-                    downloaded_at
+                    filesize_bytes
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
+                    str(metadata.internal_id),
                     metadata.source.value,
                     metadata.label.value,
-                    metadata.image_id,
+                    metadata.source_id,
                     metadata.image_url,
+                    metadata.original_filename,
                     metadata.search_query,
-                    metadata.searched_at.isoformat(),
+                    metadata.acquired_at.isoformat(),
+                    metadata.ingested_at.isoformat(),
                     metadata.license,
                     metadata.width,
                     metadata.height,
-                    metadata.filesize,
-                    metadata.is_downloaded,
-                    metadata.downloaded_at.isoformat() if metadata.downloaded_at else None
+                    metadata.filesize_bytes
                 )
             )
             row_id = cursor.lastrowid
-            logger.debug(f"Inserted image {metadata.image_id} with row_id={row_id}")
+            logger.debug(f"Inserted image {metadata.internal_id} with row_id={row_id}")
             return row_id
 
     def get_all(
@@ -147,8 +152,7 @@ class ImageMetadataDBManager:
             source: Optional[ImageSource] = None,
             label: Optional[ImageLabel] = None,
             limit: Optional[int] = None,
-            offset: int = 0,
-            only_not_downloaded: bool = False
+            offset: int = 0
     ) -> List[ImageMetadata]:
         """
         Retrieve all metadata, optionally filtered by source and/or label.
@@ -158,7 +162,6 @@ class ImageMetadataDBManager:
             label: Filter by image label (optional)
             limit: Maximum number of records to return (optional, for pagination)
             offset: Number of records to skip (default: 0, for pagination)
-            only_not_downloaded: If True, only return images that haven't been downloaded yet
 
         Returns:
             List of ImageMetadata objects
@@ -175,13 +178,10 @@ class ImageMetadataDBManager:
             conditions.append("label = ?")
             params.append(label.value)
 
-        if only_not_downloaded:
-            conditions.append("is_downloaded = 0")
-
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        query += " ORDER BY searched_at DESC"
+        query += " ORDER BY ingested_at DESC"
 
         if limit is not None:
             query += " LIMIT ?"
@@ -207,34 +207,35 @@ class ImageMetadataDBManager:
             ImageMetadata instance
         """
         return ImageMetadata(
+            internal_id=UUID(row['internal_id']),
             source=ImageSource(row['source']),
             label=ImageLabel(row['label']),
-            image_id=row['image_id'],
+            source_id=row['source_id'],
             image_url=row['image_url'],
+            original_filename=row['original_filename'],
             search_query=row['search_query'],
-            searched_at=datetime.fromisoformat(row['searched_at']),
+            acquired_at=datetime.fromisoformat(row['acquired_at']),
+            ingested_at=datetime.fromisoformat(row['ingested_at']),
             license=row['license'],
             width=row['width'],
             height=row['height'],
-            filesize=row['filesize'],
-            is_downloaded=bool(row['is_downloaded']),
-            downloaded_at=datetime.fromisoformat(row['downloaded_at']) if row['downloaded_at'] else None,
+            filesize_bytes=row['filesize_bytes']
         )
 
-    def get_by_id(self, image_id: str) -> Optional[ImageMetadata]:
+    def get_by_internal_id(self, internal_id: UUID) -> Optional[ImageMetadata]:
         """
-        Retrieve a specific image metadata record by image_id.
+        Retrieve a specific image metadata record by internal_id.
 
         Args:
-            image_id: The unique image identifier
+            internal_id: The unique internal identifier (UUID)
 
         Returns:
             ImageMetadata object if found, None otherwise
         """
         with self._get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM image_metadata WHERE image_id = ?",
-                (image_id,)
+                "SELECT * FROM image_metadata WHERE internal_id = ?",
+                (str(internal_id),)
             ).fetchone()
 
             if row is None:
@@ -242,74 +243,53 @@ class ImageMetadataDBManager:
 
             return self._row_to_metadata(row)
 
-    def update_download_status(
+    def get_by_source_id(
             self,
-            image_id: str,
-            width: Optional[int] = None,
-            height: Optional[int] = None,
-            filesize: Optional[int] = None
-    ) -> bool:
+            source: ImageSource,
+            source_id: str
+    ) -> Optional[ImageMetadata]:
         """
-        Mark an image as downloaded and optionally update its dimensions and filesize.
+        Retrieve a specific image metadata record by source and source_id.
 
         Args:
-            image_id: The unique image identifier
-            width: Image width in pixels (optional)
-            height: Image height in pixels (optional)
-            filesize: File size in bytes (optional)
+            source: The image source
+            source_id: The source-specific identifier
 
         Returns:
-            True if the record was updated, False if image_id not found
+            ImageMetadata object if found, None otherwise
         """
-        with self._get_connection() as conn:  # pycharm is telling me "self parameter unfilled"
-            cursor = conn.execute(
-                """
-                UPDATE image_metadata
-                SET is_downloaded = 1,
-                    downloaded_at = ?,
-                    width         = COALESCE(?, width),
-                    height        = COALESCE(?, height),
-                    filesize      = COALESCE(?, filesize)
-                WHERE image_id = ?
-                """,
-                (
-                    datetime.now().isoformat(),
-                    width,
-                    height,
-                    filesize,
-                    image_id
-                )
-            )
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM image_metadata WHERE source = ? AND source_id = ?",
+                (source.value, source_id)
+            ).fetchone()
 
-            updated = cursor.rowcount > 0
-            if updated:
-                logger.debug(f"Marked image {image_id} as downloaded")
-            else:
-                logger.warning(f"Image {image_id} not found for update")
+            if row is None:
+                return None
 
-            return updated
+            return self._row_to_metadata(row)
 
-    def delete(self, image_id: str) -> bool:
+    def delete(self, internal_id: UUID) -> bool:
         """
         Delete a specific image metadata record.
 
         Args:
-            image_id: The unique image identifier to delete
+            internal_id: The unique internal identifier to delete
 
         Returns:
-            True if a record was deleted, False if image_id not found
+            True if a record was deleted, False if internal_id not found
         """
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM image_metadata WHERE image_id = ?",
-                (image_id,)
+                "DELETE FROM image_metadata WHERE internal_id = ?",
+                (str(internal_id),)
             )
 
             deleted = cursor.rowcount > 0
             if deleted:
-                logger.info(f"Deleted image {image_id}")
+                logger.info(f"Deleted image {internal_id}")
             else:
-                logger.warning(f"Image {image_id} not found for deletion")
+                logger.warning(f"Image {internal_id} not found for deletion")
 
             return deleted
 
@@ -331,67 +311,76 @@ class ImageMetadataDBManager:
                     conn.execute(
                         """
                         INSERT INTO image_metadata (
+                            internal_id,
                             source, 
                             label, 
-                            image_id, 
-                            image_url, 
+                            source_id,
+                            image_url,
+                            original_filename,
                             search_query,
-                            searched_at, 
+                            acquired_at,
+                            ingested_at,
                             license, 
                             width, 
                             height, 
-                            filesize, 
-                            is_downloaded, 
-                            downloaded_at
+                            filesize_bytes
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
+                            str(metadata.internal_id),
                             metadata.source.value,
                             metadata.label.value,
-                            metadata.image_id,
+                            metadata.source_id,
                             metadata.image_url,
+                            metadata.original_filename,
                             metadata.search_query,
-                            metadata.searched_at.isoformat(),
+                            metadata.acquired_at.isoformat(),
+                            metadata.ingested_at.isoformat(),
                             metadata.license,
                             metadata.width,
                             metadata.height,
-                            metadata.filesize,
-                            metadata.is_downloaded,
-                            metadata.downloaded_at.isoformat() if metadata.downloaded_at else None
+                            metadata.filesize_bytes
                         )
                     )
                     stats['inserted'] += 1
-                except IntegrityError:
-                    logger.debug(f"Image {metadata.image_id} already exists, skipping")
+                except IntegrityError as e:
+                    logger.debug(f"Image {metadata.internal_id} already exists, skipping: {e}")
                     stats['skipped'] += 1
 
         logger.info(f"Batch insert: {stats['inserted']} inserted, {stats['skipped']} skipped")
         return stats
 
-    def get_pending_downloads(
+    def count(
             self,
-            limit: int = 100,
-            offset: int = 0,
             source: Optional[ImageSource] = None,
             label: Optional[ImageLabel] = None
-    ) -> List[ImageMetadata]:
+    ) -> int:
         """
-        Get images that haven't been downloaded yet, ready for batch downloading.
-    
+        Count total images, optionally filtered by source and/or label.
+
         Args:
-            limit: Maximum number of records to return (default: 100)
-            offset: Number of records to skip (default: 0)
             source: Filter by image source (optional)
             label: Filter by image label (optional)
-    
+
         Returns:
-            List of ImageMetadata objects for undownloaded images
+            Count of matching records
         """
-        return self.get_all(
-            source=source,
-            label=label,
-            limit=limit,
-            offset=offset,
-            only_not_downloaded=True
-        )
+        query = "SELECT COUNT(*) as count FROM image_metadata"
+        params = []
+        conditions = []
+
+        if source is not None:
+            conditions.append("source = ?")
+            params.append(source.value)
+
+        if label is not None:
+            conditions.append("label = ?")
+            params.append(label.value)
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        with self._get_connection() as conn:
+            row = conn.execute(query, params).fetchone()
+            return row['count']
