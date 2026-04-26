@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from globals import ClassLabels
+
 
 class ImageSource(Enum):
     """Image source is the site name for where the image originated"""
@@ -12,12 +14,6 @@ class ImageSource(Enum):
     REDDIT = "REDDIT"
     MANUFACTURER_SITE = "MANUFACTURER_SITE"
     MYSELF = "MYSELF"
-
-
-class ImageLabel(Enum):
-    """Image is labeled as either electric or acoustic"""
-    ELECTRIC = "ELECTRIC"
-    ACOUSTIC = "ACOUSTIC"
 
 
 class ImageMetadata(BaseModel):
@@ -31,7 +27,7 @@ class ImageMetadata(BaseModel):
 
     # Source information
     source: ImageSource
-    label: ImageLabel
+    label: ClassLabels
 
     # Source-specific identifiers
     source_id: Optional[str] = None  # Unsplash ID, Reddit post ID, etc.
