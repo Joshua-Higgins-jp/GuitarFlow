@@ -6,32 +6,30 @@
 
 ## What is This?
 
-GuitarFlow is a 2-class image classifier that figures out electric guitars
-from acoustic guitars. The classification problem is intentionally simple and
-forever iterable. The model can always be improved with more data, better
+GuitarFlow is a 2-class image classifier portfolio project that categorises electric guitars
+and acoustic guitars. The classification problem is intentionally simple and
+forever iterable - it can always be improved with more data, better
 augmentation, or a more sophisticated architecture.
 
-However, perfecting a detection and classification model isn't the be-all and end-all.
-
-The point of this project is the engineering around it: data versioning, experiment 
-tracking, inference logging, monitoring, deployment, CI/CD, and the architectural
-decisions and tradeoffs that hold it all together. A simple problem with the
-bells and whistles of a production ML system, publicly documented, from end to end.
+However, 'perfecting the model' isn't the main objective of this project (nor realistic).
+Rather, the engineering around it - meaning the data versioning, experiment tracking, inference 
+logging, monitoring, deployment, CI/CD, and the architectural decisions and tradeoffs 
+that hold it all together. A simple problem with the bells and whistles of a production
+ML system, publicly documented, from end to end.
 
 ---
 
 ## Why This Project?
 
-I work daily in backend, ML, and computer vision. The codebases I work with professionally
-are under NDA, which means the most interesting engineering decisions I make  day to day 
-are not mine to share publicly.
+My engineering day job is Backend, ML, and CV, and for that matter, NDA. Sadly, this means the 
+most interesting engineering decisions I make day to day are not mine to share publicly
+(... and the code, of course!)
 
 GuitarFlow exists to fix that. I am building it in my own time, on a problem I chose,
-with full freedom to document every decision, including the ones that didn't
+with the full freedom to document every decision, including the ones that didn't
 work out. The model classifies guitars. The portfolio demonstrates how to
-build, version, deploy, and monitor a real ML system.
-
-While the product is imaginary, the skills, knowledge gained, tools, and deployment are real.
+build, version, deploy, and monitor a real ML system. While the product is imaginary, 
+the development process is real.
 
 ---
 
@@ -190,13 +188,10 @@ so I would be setting up the product for additional operating expenses to offset
 
 Why it is not implemented in the current version:
 
-YOLO pretrained on COCO does not include guitar as a class — COCO's 80
-classes cover common objects but no musical instruments beyond a rough
-category level. Implementing the two-stage pipeline would require collecting
-and annotating a guitar detection dataset with bounding boxes per image,
-training a custom YOLO detector, and managing two model weights files in
-deployment. That is a significant data preparation effort that is out of
-scope for the current portfolio stage.
+YOLO pretrained on COCO doesn't have a guitar class (womp womp). 
+Preparing this data annotation is quite time consuming, so I decided not to do it
+for the MVP. Eventually, I might do that so the inference process goes  
+"detect guitar" -> "classify guitar type".
 
 Current mitigation: a trained "no_guitar" catch class handles out-of-distribution
 inputs within the existing single-stage classifier.
@@ -217,14 +212,12 @@ _Living section — updated as the project progresses._
   augment training data with concert photography.
 
 - Streamlit Community Cloud was the original planned deployment target.
-  However, I prefer to package containers, and free tier doesn't appear to 
-- support this. HuggingFace Spaces supports Streamlit as a first-class SDK and
-  is the better platform for ML demos (sad for StreamLit TBH).
+  However, I prefer to package containers, and free tier doesn't appear to support this. 
+  HuggingFace Spaces supports Streamlit as a first-class SDK and
+  is the better platform for ML demos (sad for StreamLit tbh, back in the day it was the GOAT).
 
-- uv was chosen over pip/venv for packaging. New PyCharm also natively supports it. 
-  Pixi also works fine, but overkill for common non-conda packages. Dependency resolution is
-  significantly faster and the lockfile makes builds fully reproducible.
-  PyCharm requires a manual sync after uv add to recognise new packages.
+- uv was chosen over pip/venv for packaging. New PyCharm versions also natively supports it. 
+  Pixi also works fine, but overkill for common non-conda packages. 
 
 - Model weights are loaded once at startup using @st.cache_resource to
   avoid reloading on every Streamlit interaction.
