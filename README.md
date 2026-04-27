@@ -151,7 +151,7 @@ _This README is updated as the project progresses._
 git clone https://github.com/Joshua-Higgins-jp/GuitarFlow
 cd guitarflow
 uv sync
-PYTHONPATH=. uv run streamlit run src/app/streamlit_app.py
+PYTHONPATH=src uv run streamlit run src/app/app.py
 ```
 
 MLflow UI (experiment tracking):
