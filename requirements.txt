@@ -1,0 +1,13 @@
+# GuitarFlow — deployment dependencies only
+# Dev and training deps (scikit-learn, ipykernel, pandas, requests) are
+# intentionally excluded to keep the image lean.
+# Generated from pyproject.toml — update here if uv.lock changes.
+
+streamlit>=1.50.0
+torch>=2.8.0
+torchvision>=0.23.0
+pillow>=11.3.0
+loguru>=0.7.3
+python-dotenv>=1.2.1
+datadog-api-client>=2.54.0
+pydantic>=2.12.5
