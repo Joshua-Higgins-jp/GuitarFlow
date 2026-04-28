@@ -3,10 +3,8 @@ from pathlib import Path
 
 from loguru import logger
 
-from data_collecting.metadata_models_enums import ImageLabel, ImageSource
-
-DATA_ROOT_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
-DATABASE_PATH: Path = DATA_ROOT_DIR / "data.db"
+from data_collecting.metadata_models_enums import ImageSource
+from globals import ClassLabels, DATA_ROOT_DIR
 
 
 class DatasetStage(Enum):
@@ -102,7 +100,7 @@ class DataDirectoryManager:
         log_pfx: str = "INIT RAW DIRS"
         service_name: str = image_source.value.lower()
 
-        for label in ImageLabel:
+        for label in ClassLabels:
             label_name: str = label.value.lower()
             raw_dir: Path = self.data_root / DatasetStage.RAW.value / service_name / label_name
             raw_dir.mkdir(parents=True, exist_ok=True)
@@ -116,7 +114,7 @@ class DataDirectoryManager:
         """Create curated data directory structure (source-agnostic)."""
         log_pfx: str = "INIT CURATED DIRS"
 
-        for label in ImageLabel:
+        for label in ClassLabels:
             label_name: str = label.value.lower()
             curated_dir: Path = self.data_root / DatasetStage.CURATED.value / label_name
             curated_dir.mkdir(parents=True, exist_ok=True)
@@ -131,7 +129,7 @@ class DataDirectoryManager:
         log_pfx: str = "INIT SPLIT DIRS"
 
         for split in SplitType:
-            for label in ImageLabel:
+            for label in ClassLabels:
                 label_name: str = label.value.lower()
                 split_dir: Path = (
                         self.data_root / DatasetStage.SPLITS.value / split.value / label_name
@@ -148,7 +146,7 @@ class DataDirectoryManager:
     def get_raw_dir(
             self,
             image_source: ImageSource,
-            label: ImageLabel
+            label: ClassLabels
     ) -> Path:
         """
         Get path to raw data directory for specific source and label.
@@ -165,7 +163,7 @@ class DataDirectoryManager:
                 image_source.value.lower() / label.value.lower()
         )
 
-    def get_curated_dir(self, label: ImageLabel) -> Path:
+    def get_curated_dir(self, label: ClassLabels) -> Path:
         """
         Get path to curated data directory for specific label.
 
@@ -180,7 +178,7 @@ class DataDirectoryManager:
     def get_split_dir(
             self,
             split: SplitType,
-            label: ImageLabel
+            label: ClassLabels
     ) -> Path:
         """
         Get path to train/val/test split directory for specific label.
@@ -202,7 +200,7 @@ class DataDirectoryManager:
     def get_raw_image(
             self,
             image_source: ImageSource,
-            label: ImageLabel,
+            label: ClassLabels,
             filename: str
     ) -> Path:
         """
@@ -220,7 +218,7 @@ class DataDirectoryManager:
 
     def get_curated_image(
             self,
-            label: ImageLabel,
+            label: ClassLabels,
             filename: str
     ) -> Path:
         """
@@ -238,7 +236,7 @@ class DataDirectoryManager:
     def get_split_image(
             self,
             split: SplitType,
-            label: ImageLabel,
+            label: ClassLabels,
             filename: str
     ) -> Path:
         """
