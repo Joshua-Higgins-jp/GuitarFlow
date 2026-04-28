@@ -9,13 +9,12 @@ from PIL import Image
 from PIL.ImageFile import ImageFile
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
+from app_settings import APP_DEBUG_MODE
 from app_models import InferenceEvent, ClassProbabilities
 from globals import MODELS_DIR, ClassLabels
 from image_metadata import ImageMetadata
 from prediction import classification_predict, load_classification_model
 from utils.dt_timestamps import get_dt_now_utc
-
-DEBUG: bool = True
 
 
 @st.cache_resource
@@ -104,7 +103,7 @@ if image and metadata:
                 inference_latency_ms=inference_time_ms,
             )
 
-            if DEBUG:
+            if APP_DEBUG_MODE:
                 with st.expander("🔍 Debug — Inference Event", expanded=False):
                     st.json(event.model_dump(mode="json"))
                     st.bar_chart(scores)  # raw scores dict maps directly
