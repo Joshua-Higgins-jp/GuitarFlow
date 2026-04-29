@@ -11,9 +11,10 @@ from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 from app_settings import APP_DEBUG_MODE
 from app_models import InferenceEvent, ClassProbabilities
-from globals import MODELS_DIR, ClassLabels
-from image_metadata import ImageMetadata
-from prediction import classification_predict, load_classification_model
+from config.globals import ClassLabels
+from config.paths import MODELS_DIR
+from utils.image_metadata import ImageMetadata
+from models.prediction import classification_predict, load_classification_model
 from utils.dt_timestamps import get_dt_now_utc
 
 
