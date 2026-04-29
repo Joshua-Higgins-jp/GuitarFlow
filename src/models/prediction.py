@@ -9,7 +9,7 @@ from loguru import logger
 from torchvision import models, transforms
 from torchvision.models import ResNet
 
-from globals import ClassLabels
+from config.globals import ClassLabels
 
 DEVICE: torch.device = torch.device(
     "cuda" if torch.cuda.is_available()
