@@ -4,7 +4,7 @@ from typing import Optional
 from dotenv import load_dotenv, find_dotenv
 
 
-def load_env_value_local(key_name: str) -> str:
+def load_env_var(key_name: str) -> str:
     """
     Read a secret value from the local .env file.
 
