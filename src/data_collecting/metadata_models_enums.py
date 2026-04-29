@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from globals import ClassLabels
+from config.globals import ClassLabels
 
 
 class ImageSource(Enum):
