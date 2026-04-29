@@ -4,7 +4,8 @@ from pathlib import Path
 from loguru import logger
 
 from data_collecting.metadata_models_enums import ImageSource
-from globals import ClassLabels, DATA_ROOT_DIR
+from config.globals import ClassLabels
+from config.paths import DATA_DIR
 
 
 class DatasetStage(Enum):
@@ -58,7 +59,7 @@ class DataDirectoryManager:
     def __init__(
             self,
             init_data_dirs: bool = True,
-            data_root: Path = DATA_ROOT_DIR
+            data_root: Path = DATA_DIR
     ) -> None:
         """
         Initialize the DataDirectoryManager.
