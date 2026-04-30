@@ -2,10 +2,11 @@
 # Dev and training deps (scikit-learn, ipykernel, pandas, requests) are
 # intentionally excluded to keep the image lean.
 # Generated from pyproject.toml — update here if uv.lock changes.
+--extra-index-url https://download.pytorch.org/whl/cpu
 
 streamlit>=1.50.0
-torch>=2.8.0
-torchvision>=0.23.0
+torch==2.11.0+cpu
+torchvision==0.26.0+cpu
 pillow>=11.3.0
 loguru>=0.7.3
 python-dotenv>=1.2.1
