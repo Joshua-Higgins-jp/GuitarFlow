@@ -17,10 +17,11 @@ WORKDIR /app
 
 # ── Python dependencies ───────────────────────────────────────────────────────
 # Copy requirements first so Docker cache layer is reused if deps don't change
-COPY requirements.deploy.txt .
+COPY requirements.txt .
 
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.deploy.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip \
+    && pip install -r requirements.txt
 
 # ── App source ────────────────────────────────────────────────────────────────
 COPY src/ ./src/
@@ -41,7 +42,7 @@ ENV STREAMLIT_SERVER_PORT=7860
 ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 # Disable the "Deploy to Streamlit Cloud" button — not relevant here
 ENV STREAMLIT_SERVER_ENABLE_STATIC_SERVING=false
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 
 EXPOSE 7860
 
@@ -52,4 +53,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 ENV APP_ENV="PROD"
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
-CMD ["python", "-m", "streamlit", "run", "src/app/streamlit_app.py"]
+CMD ["python", "-m", "streamlit", "run", "src/app/app.py"]
