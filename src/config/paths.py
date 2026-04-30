@@ -2,7 +2,9 @@ from pathlib import Path
 from loguru import logger
 
 
-def _validate_and_log(name: str, path: Path) -> Path:
+SHOW_LOGS = False
+
+def _validate_and_log(name: str, path: Path, show_logs: bool = SHOW_LOGS) -> Path:
     """
     Validates that a project path exists and logs its resolution at startup.
 
@@ -13,12 +15,14 @@ def _validate_and_log(name: str, path: Path) -> Path:
     Parameters:
         name: Name of the project path.
         path: Path to the project path.
+        show_logs: Whether to log path names. warning or higher always logs.
 
     Returns:
         Path to the project path; same as input path.
     """
     if path.exists():
-        logger.info(f"{name:<24} {path}")
+        if show_logs:
+            logger.info(f"{name:<24} {path}")
     else:
         logger.warning(f"{name:<24} {path}  ← does not exist")
     return path
