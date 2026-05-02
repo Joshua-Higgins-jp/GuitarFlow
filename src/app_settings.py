@@ -8,3 +8,4 @@ if ENV.upper() not in ["DEV", "PROD"]:
 
 APP_DEBUG_MODE: bool = ENV.upper() == "DEV"
 DATADOG_API_KEY: str = load_env_var(key_name="DATADOG_API_KEY")
+DATADOG_SITE: str = load_env_var(key_name="DATADOG_SITE")
