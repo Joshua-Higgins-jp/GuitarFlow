@@ -9,13 +9,14 @@ from PIL import Image
 from PIL.ImageFile import ImageFile
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
+from schemas.inference_event import ClassProbabilities, InferenceEvent
 from app_settings import APP_DEBUG_MODE
-from app_models import InferenceEvent, ClassProbabilities
 from config.globals import ClassLabels
 from config.paths import MODELS_DIR
-from utils.image_metadata import ImageMetadata
 from models.prediction import classification_predict, load_classification_model
+from monitoring.app_monitoring_datadog import send_inference_event
 from utils.dt_timestamps import get_dt_now_utc
+from utils.image_metadata import ImageMetadata
 
 
 @st.cache_resource
@@ -103,6 +104,8 @@ if image and metadata:
                 all_class_probabilities=ClassProbabilities(**scores),
                 inference_latency_ms=inference_time_ms,
             )
+
+            send_inference_event(event=event)
 
             if APP_DEBUG_MODE:
                 with st.expander("🔍 Debug — Inference Event", expanded=False):
