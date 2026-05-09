@@ -17,3 +17,6 @@
 
 # Model files
 /src/models/*.pth
+
+# databases
+/mlflow.db
