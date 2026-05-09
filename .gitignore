@@ -13,6 +13,7 @@
 /logs
 /tests
 /deprecated_code
+/mlflow-data/
 
 # Model files
 /src/models/*.pth
