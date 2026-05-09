@@ -1,16 +1,18 @@
 from pathlib import Path
+
 from loguru import logger
 
+from config.globals import _SHOW_LOGS
 
-SHOW_LOGS = False
 
-def _validate_and_log(name: str, path: Path, show_logs: bool = SHOW_LOGS) -> Path:
+def _validate_and_log(name: str, path: Path, show_logs: bool = _SHOW_LOGS) -> Path:
     """
     Validates that a project path exists and logs its resolution at startup.
 
     Logs at DEBUG level when the path exists, WARNING level when it does not.
     Missing paths are not raised as errors here since some directories
-    (e.g. logs/, data/) may be created lazily at runtime.
+    (e.g. logs/, data/) may be created lazily at runtime. Also, some deployments
+    may not need specific directories, so no need to make them nor check their existence.
 
     Parameters:
         name: Name of the project path.
@@ -28,15 +30,16 @@ def _validate_and_log(name: str, path: Path, show_logs: bool = SHOW_LOGS) -> Pat
     return path
 
 
-PROJECT_DIR = _validate_and_log(name="PROJECT_DIR", path=Path(__file__).parent.parent.parent)
-TESTS_DIR:   Path = _validate_and_log(name="TESTS_DIR", path=PROJECT_DIR / "tests")
-DATA_DIR:    Path = _validate_and_log(name="DATA_DIR", path=PROJECT_DIR / "data")
-DATABASE_PATH: Path = _validate_and_log(name="DATABASE_PATH", path=DATA_DIR / "data.db")
-SRC_DIR:     Path = _validate_and_log(name="SRC_DIR", path=PROJECT_DIR / "src")
-APP_DIR:     Path = _validate_and_log(name="APP_DIR", path=SRC_DIR / "app")
-CONFIG_DIR:  Path = _validate_and_log(name="CONFIG_DIR", path=SRC_DIR / "config")
-DATA_COLLECTING_DIR: Path = _validate_and_log(name="DATA_COLLECTING_DIR", path=SRC_DIR / "data_collecting")
-MODELS_DIR:  Path = _validate_and_log(name="MODELS_DIR", path=SRC_DIR / "models")
-MONITORING_DIR: Path = _validate_and_log(name="MONITORING_DIR", path=SRC_DIR / "monitoring")
-TRAINING_DIR: Path = _validate_and_log(name="TRAINING_DIR", path=SRC_DIR / "training")
-UTILS_DIR:   Path = _validate_and_log(name="UTILS_DIR", path=SRC_DIR / "utils")
+PROJECT_DIR:          Path = _validate_and_log(name="PROJECT_DIR",          path=Path(__file__).parent.parent.parent)
+TESTS_DIR:            Path = _validate_and_log(name="TESTS_DIR",            path=PROJECT_DIR / "tests")
+DATA_DIR:             Path = _validate_and_log(name="DATA_DIR",             path=PROJECT_DIR / "data")
+DATABASE_PATH:        Path = _validate_and_log(name="DATABASE_PATH",        path=DATA_DIR / "data.db")
+DATASET_VERSIONS_DIR: Path = _validate_and_log(name="DATASET_VERSIONS_DIR", path=DATA_DIR / "dataset_versions")
+SRC_DIR:              Path = _validate_and_log(name="SRC_DIR",              path=PROJECT_DIR / "src")
+APP_DIR:              Path = _validate_and_log(name="APP_DIR",              path=SRC_DIR / "app")
+CONFIG_DIR:           Path = _validate_and_log(name="CONFIG_DIR",           path=SRC_DIR / "config")
+DATA_COLLECTING_DIR:  Path = _validate_and_log(name="DATA_COLLECTING_DIR",  path=SRC_DIR / "data_collecting")
+MODELS_DIR:           Path = _validate_and_log(name="MODELS_DIR",           path=SRC_DIR / "models")
+MONITORING_DIR:       Path = _validate_and_log(name="MONITORING_DIR",       path=SRC_DIR / "monitoring")
+TRAINING_DIR:         Path = _validate_and_log(name="TRAINING_DIR",         path=SRC_DIR / "training")
+UTILS_DIR:            Path = _validate_and_log(name="UTILS_DIR",            path=SRC_DIR / "utils")
