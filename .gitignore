@@ -6,14 +6,16 @@
 .idea
 .git
 .env
-*.egg-info
 
-# Directories (image data, logs etc)
+# Directories (image data, logs), build artefacts, etc.
 /data
 /logs
 /tests
 /deprecated_code
 /mlflow-data/
+*.egg-info/
+dist/
+build/
 
 # Model files
 /src/models/*.pth
