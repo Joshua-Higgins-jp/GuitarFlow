@@ -11,7 +11,7 @@
 /data
 /logs
 /tests
-/deprecated_code
+/AA_deprecated_code
 /mlflow-data/
 *.egg-info/
 dist/
