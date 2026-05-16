@@ -43,7 +43,7 @@ TESTS_DIR:              Path = _validate_and_log(name="TESTS_DIR",            pa
 # SOURCE CODE #
 APP_DIR:                Path = _validate_and_log(name="APP_DIR",              path=SRC_DIR / "app")
 CONFIG_DIR:             Path = _validate_and_log(name="CONFIG_DIR",           path=SRC_DIR / "config")
-DATA_COLLECTING_DIR:    Path = _validate_and_log(name="DATA_COLLECTING_DIR",  path=SRC_DIR / "data_collecting")
+DATA_MANAGEMENT_DIR:    Path = _validate_and_log(name="DATA_MANAGEMENT_DIR",  path=SRC_DIR / "data_mgmt")
 MODELS_DIR:             Path = _validate_and_log(name="MODELS_DIR",           path=SRC_DIR / "models")
 MONITORING_DIR:         Path = _validate_and_log(name="MONITORING_DIR",       path=SRC_DIR / "monitoring")
 TRAINING_DIR:           Path = _validate_and_log(name="TRAINING_DIR",         path=SRC_DIR / "training")
