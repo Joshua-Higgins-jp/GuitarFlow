@@ -8,10 +8,9 @@ def load_env_var(key_name: str) -> str:
     """
     Read an environment variable, optionally loading from a .env file.
 
-    In production environments, variables are expected to be injected directly
-    into the environment. The .env file is only loaded when present (i.e. local
-    development). If no .env file is found, the function falls back to reading
-    from the environment directly.
+    In prod, variables are expected to be injected directly into the environment.
+    The .env file is only loaded when present (i.e. locally as DEV). If no .env file
+    is found, the function falls back to reading from the environment directly.
 
     Args:
         key_name: The environment variable name (e.g. API_KEY)
