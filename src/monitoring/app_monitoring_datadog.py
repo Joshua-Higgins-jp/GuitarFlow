@@ -4,7 +4,7 @@ from datadog_api_client.v2.model.http_log import HTTPLog
 from datadog_api_client.v2.model.http_log_item import HTTPLogItem
 from loguru import logger
 
-from schemas.inference_event import InferenceEvent
+from monitoring.inference_event_models import InferenceEvent
 from app_settings import ENV, DATADOG_API_KEY, DATADOG_SITE
 
 
