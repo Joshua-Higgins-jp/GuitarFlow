@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from config.globals import ClassLabels, SourceLabels, StatusLabels
+from config.globals import ClassLabels, SourceLabels, StatusLabels, AcceptedImageFormats
 
 
 class ImageRecordModel(BaseModel):
@@ -39,6 +39,8 @@ class ImageRecordModel(BaseModel):
     width: int = Field(..., gt=0)
     height: int = Field(..., gt=0)
     filesize_bytes: int = Field(..., gt=0)
+    image_format: AcceptedImageFormats
+    num_channels: int = Field(..., ge=1, le=4)  # 1 channel is BW. probably, we should filter these out? 3 is RGB, 4 adds alpha channel
 
     def resolve_path(
             self,
