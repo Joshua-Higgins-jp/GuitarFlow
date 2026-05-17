@@ -6,15 +6,14 @@ from uuid import uuid4
 
 import streamlit as st
 from PIL import Image
-from PIL.ImageFile import ImageFile
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
-from schemas.inference_event import ClassProbabilities, InferenceEvent
 from app_settings import APP_DEBUG_MODE
-from config.globals import ClassLabels
+from config.globals import ClassLabels, AcceptedImageFormats
 from config.paths import MODELS_DIR
 from models.prediction import classification_predict, load_classification_model
 from monitoring.app_monitoring_datadog import send_inference_event
+from monitoring.inference_event_models import ClassProbabilities, InferenceEvent
 from utils.dt_timestamps import get_dt_now_utc
 from utils.image_metadata import ImageMetadata
 
@@ -54,23 +53,24 @@ metadata: Optional[ImageMetadata] = None
 with tab_upload:
     uploaded: Optional[UploadedFile] = st.file_uploader(
         label="Upload a guitar photo",
-        type=["jpg", "jpeg", "png", "webp"],
+        type=AcceptedImageFormats.as_tuple(),
         max_upload_size=5
     )
-    if uploaded:
+    if uploaded is not None:
         image_uploaded_timestamp: datetime = get_dt_now_utc()
-        metadata = ImageMetadata.from_uploaded(uploaded=uploaded)
-        image = Image.open(fp=uploaded)
-
+        raw_bytes: bytes = uploaded.read()
+        metadata = ImageMetadata.from_bytes(raw_bytes=raw_bytes, original_filename=uploaded.name)
+        assert metadata is not None
+        image = metadata.image
 
 with tab_camera:
     captured = st.camera_input("Take a photo of your guitar")
     if captured:
         image_uploaded_timestamp: datetime = get_dt_now_utc()
-        image: Optional[ImageFile] = Image.open(fp=captured)
-        if image:
-            metadata = ImageMetadata.from_pil(image=image)
-
+        raw_bytes: bytes = captured.read()
+        metadata = ImageMetadata.from_bytes(raw_bytes=raw_bytes)
+        assert metadata is not None
+        image = metadata.image
 
 # ── Inference ──────────────────────────────────────────────────────────────────
 if image and metadata:
@@ -92,7 +92,7 @@ if image and metadata:
                 image_capture_timestamp=image_uploaded_timestamp,
                 session_id=st.session_state["session_id"],
                 model_version="beta",
-                image_filename=metadata.filename,
+                image_filename_pii_safe=metadata.filename,
                 image_hash=metadata.image_hash,
                 image_width_px=metadata.width_px,
                 image_height_px=metadata.height_px,
