@@ -13,7 +13,7 @@ def extract_possible_unsplash_id(filepath: Path) -> str:
     WARNING: This is heuristic-based and may be incorrect.
     For guaranteed uniqueness, use the full filename stem instead.
     """
-    filename = filepath.stem
+    filename: str = filepath.stem
 
     # Pattern: 11 alphanumeric chars (case-sensitive) before -unsplash
     match: Optional[Match[str]] = search(
