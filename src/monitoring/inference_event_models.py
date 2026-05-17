@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from config.globals import ClassLabels
+from config.globals import ClassLabels, AcceptedImageFormats
 
 
 class ClassProbabilities(BaseModel):
@@ -17,7 +17,7 @@ class ClassProbabilities(BaseModel):
 
     acoustic: float = Field(ge=0.0, le=1.0)
     electric: float = Field(ge=0.0, le=1.0)
-    not_guitar: float = Field(default=0.0, ge=0.0, le=1.0)  # TODO: not implemented
+    not_guitar: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class InferenceEvent(BaseModel):
@@ -42,11 +42,11 @@ class InferenceEvent(BaseModel):
     model_version: str
 
     # input
-    image_filename: str
+    image_filename_pii_safe: str
     image_hash: str
     image_width_px: int = Field(ge=1)
     image_height_px: int = Field(ge=1)
-    image_format: str
+    image_format: AcceptedImageFormats
     image_file_size_bytes: int = Field(ge=0)
     num_channels: int = Field(default=3, ge=1, le=4)
 
