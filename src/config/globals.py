@@ -57,3 +57,21 @@ class StatusLabels(StrEnum):
     @classmethod
     def as_tuple(cls) -> Tuple[str, ...]:
         return tuple(member.value for member in cls)
+
+
+class AcceptedImageFormats(StrEnum):
+    """
+    must be uppercase please: JPEG, JPG, PNG, WEBP
+    """
+    JPEG = "JPEG"
+    JPG = "JPG"
+    PNG = "PNG"
+    WEBP = "WEBP"
+
+    @classmethod
+    def as_tuple(cls) -> Tuple[str, ...]:
+        return tuple(member.value for member in cls)
+
+    @classmethod
+    def as_frozen_set(cls) -> frozenset[str]:
+        return frozenset(member.value for member in cls)
