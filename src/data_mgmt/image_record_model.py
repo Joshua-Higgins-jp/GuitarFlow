@@ -20,11 +20,11 @@ class ImageRecordModel(BaseModel):
     to environment changes - only DATA_DIR needs to be configured externally.
     """
     image_hash: str                    # SHA-256 hex digest - the identity of this image
-    source: SourceLabels
-    label: ClassLabels
-    status: StatusLabels
+    source: SourceLabels  # StrEnum
+    label: ClassLabels  # StrEnum
+    status: StatusLabels  # StrEnum
 
-    source_id: Optional[str] = None
+    source_id: Optional[str] = None  # the ID the source uses. e.g. pixabay source id would be pixabay's image id.
     image_url: Optional[str] = None
     filename: str
     search_query: Optional[str] = None  # the search query on source that procured the image
@@ -32,6 +32,7 @@ class ImageRecordModel(BaseModel):
     # Collection metadata
     acquired_at: datetime  # When the image entered our system (file mtime, download time, photo taken time)
     ingested_at: datetime  # When this metadata record was created (now())
+    last_seen: datetime
 
     image_license: Optional[str] = None
 
@@ -39,7 +40,7 @@ class ImageRecordModel(BaseModel):
     width: int = Field(..., gt=0)
     height: int = Field(..., gt=0)
     filesize_bytes: int = Field(..., gt=0)
-    image_format: AcceptedImageFormats
+    image_format: AcceptedImageFormats  # StrEnum
     num_channels: int = Field(..., ge=1, le=4)  # 1 channel is BW. probably, we should filter these out? 3 is RGB, 4 adds alpha channel
 
     def resolve_path(
