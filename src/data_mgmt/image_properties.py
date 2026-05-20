@@ -72,6 +72,10 @@ class ImageProperties:
         Checks that dimensions are positive, channel count is within the
         accepted range (1=greyscale, 3=RGB, 4=RGBA), and the format is
         one the model was trained on.
+
+        Not raising on any of these is a design choice - if your processing handles invalid exceptions,
+        that maybe a better use. Alternatively, you can call this is_valid() and raise if False.
+        Same results, extra steps. Not designing landmines unless needed.
         """
         return (
             self.width > 0
