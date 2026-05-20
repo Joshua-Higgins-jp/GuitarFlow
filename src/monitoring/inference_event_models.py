@@ -47,7 +47,7 @@ class InferenceEvent(BaseModel):
     image_width_px: int = Field(ge=1)
     image_height_px: int = Field(ge=1)
     image_format: AcceptedImageFormats
-    image_file_size_bytes: int = Field(ge=0)
+    image_filesize_bytes: int = Field(ge=0)
     num_channels: int = Field(default=3, ge=1, le=4)
 
     # output
