@@ -12,6 +12,16 @@ from loguru import logger
 from config.paths import CORRUPT_DIR, RAW_DIR
 
 
+"""
+TO RUN:
+
+    1. cd GuitarFlow/scripts
+    2. uv run python quarantine_damaged_images.py --dry-run  OR  
+       uv run python quarantine_damaged_images.py --move
+    
+"""
+
+
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _build_quarantine_name(path: Path, root: Path) -> str:
