@@ -9,8 +9,9 @@ from typing import Optional
 from PIL import Image
 from loguru import logger
 
-from config.paths import CORRUPT_DIR, RAW_DIR
-
+from config.globals import AcceptedImageFormats
+from config.paths import CORRUPT_DIR, RAW_DIR, LOGS_DIR
+from monitoring.logging_manager import LoggerManager
 
 """
 TO RUN:
@@ -92,8 +93,8 @@ def find_truncated_and_quarantine(
         List of paths that failed verification.
     """
     bad: list[Path] = []
-    extensions = {".jpg", ".jpeg", ".png", ".webp"}
-    candidates = [p for p in root.rglob("*") if p.suffix.lower() in extensions]
+    extensions: frozenset[str] = AcceptedImageFormats.as_frozen_set(include_dot=True)
+    candidates: list[Path] = [p for p in root.rglob("*") if p.suffix.lower() in extensions]
 
     logger.info(f"Scanning {len(candidates)} images under {root}")
 
@@ -165,4 +166,10 @@ def main(argv: Optional[list[str]] = None) -> None:
 
 
 if __name__ == "__main__":
+    # log this
+    LoggerManager(
+        log_dir=LOGS_DIR,
+        session_name="quarantine_script"
+    )
+    # then run it
     main()
