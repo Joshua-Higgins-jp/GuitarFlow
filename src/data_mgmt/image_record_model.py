@@ -9,7 +9,7 @@ from config.globals import ClassLabels, SourceLabels, StatusLabels, AcceptedImag
 
 class ImageRecordModel(BaseModel):
     """
-    Single image metadata record.
+    Single image metadata record - this is for LOCAL images.
 
     Identity is the SHA-256 hash of the raw image bytes - not a UUID.
     This means the same image content is always the same record, regardless
@@ -33,7 +33,7 @@ class ImageRecordModel(BaseModel):
     acquired_at: datetime  # When the image entered our system (file mtime, download time, photo taken time)
     ingested_at: datetime  # When this metadata record was created (now())
 
-    license: Optional[str] = None
+    image_license: Optional[str] = None
 
     # Image properties (just have to be positive, non-zero)
     width: int = Field(..., gt=0)
