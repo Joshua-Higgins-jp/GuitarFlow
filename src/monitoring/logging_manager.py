@@ -3,7 +3,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from src.utils.dt_timestamps import get_dt_now_jst
+from utils.dt_timestamps import get_dt_now_jst
 
 
 class LoggerManager:
