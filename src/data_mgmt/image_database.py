@@ -124,7 +124,7 @@ class ImageRecordAdapter:
 # ---------------------------------------------------------------------------
 # Database manager
 # ---------------------------------------------------------------------------
-class ImageMetadataDBManager:
+class DatabaseManager:
     """
     SQLite database manager for image metadata.
 
