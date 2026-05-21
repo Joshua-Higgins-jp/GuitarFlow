@@ -50,7 +50,7 @@ TRAINING_DIR:           Path = _validate_and_log(name="TRAINING_DIR",         pa
 UTILS_DIR:              Path = _validate_and_log(name="UTILS_DIR",            path=SRC_DIR / "utils")
 
 # DATA #
-METADATA_DATABASE_PATH: Path = _validate_and_log(name="DATABASE_PATH",        path=DATA_DIR / "data.db")
+DB_PATH:                Path = _validate_and_log(name="DB_PATH",              path=DATA_DIR / "data.db")
 DATA_VERSIONS_DIR:      Path = _validate_and_log(name="DATA_VERSIONS_DIR",    path=DATA_DIR / "data_versions")
 CORRUPT_DIR:            Path = _validate_and_log(name="CORRUPT_DIR",          path=DATA_DIR / "corrupt")
 SPLITS_DIR:             Path = _validate_and_log(name="SPLITS_DIR",           path=DATA_DIR / "splits")
