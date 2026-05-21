@@ -56,12 +56,13 @@ class ImageProperties:
             ValueError: If the image format cannot be determined from PIL, or
             if the format is not in AcceptedImageFormats.
         """
+        image_format = AcceptedImageFormats(img.format.lower()) if img.format else None
         return cls(
             image_hash=image_hash,
             width=img.width,
             height=img.height,
             num_channels=len(img.getbands()),
-            image_format=AcceptedImageFormats(img.format),
+            image_format=image_format,
             filesize_bytes=filesize_bytes,
         )
 
