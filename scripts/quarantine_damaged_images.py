@@ -11,7 +11,7 @@ from loguru import logger
 
 from config.globals import AcceptedImageFormats
 from config.paths import CORRUPT_DIR, RAW_DIR, LOGS_DIR
-from monitoring.logging_manager import LoggerManager
+from monitoring.logging_manager import LoggingManager
 
 """
 TO RUN:
@@ -166,10 +166,10 @@ def main(argv: Optional[list[str]] = None) -> None:
 
 
 if __name__ == "__main__":
-    # log this
-    LoggerManager(
+    # start logging sink
+    LoggingManager(
         log_dir=LOGS_DIR,
         session_name="quarantine_script"
     )
-    # then run it
+    # then run the code
     main()
