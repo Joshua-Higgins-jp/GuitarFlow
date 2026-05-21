@@ -6,7 +6,7 @@ from loguru import logger
 from utils.dt_timestamps import get_dt_now_jst
 
 
-class LoggerManager:
+class LoggingManager:
     """
     Manages session-based logging to plain text files.
 
