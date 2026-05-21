@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional
 
 from PIL import Image
 from loguru import logger
@@ -42,7 +41,7 @@ class ScanTarget:
     """
     directory: Path
     label: ClassLabels
-    source: Optional[SourceLabels]
+    source: SourceLabels
 
 
 # ---------------------------------------------------------------------------
@@ -86,10 +85,10 @@ class ReconciliationResult:
 # Scan target builder
 # ---------------------------------------------------------------------------
 def build_scan_targets(
-        labels: List[ClassLabels],
-        sources: List[SourceLabels],
+        labels: list[ClassLabels],
+        sources: list[SourceLabels],
         raw_dir: Path = RAW_DIR,
-) -> List[ScanTarget]:
+) -> list[ScanTarget]:
     """
     Build a list of scan targets from the cartesian product of labels x sources.
 
@@ -105,7 +104,7 @@ def build_scan_targets(
     Returns:
         List of ScanTarget objects for directories that exist on disk.
     """
-    targets: List[ScanTarget] = []
+    targets: list[ScanTarget] = []
 
     for label in labels:
         for source in sources:
@@ -161,7 +160,7 @@ class Reconciler:
 
         targets = build_scan_targets(
             labels=[ClassLabels.ELECTRIC, ClassLabels.ACOUSTIC],
-            sources=[SourceLabels.UNSPLASH, SourceLabels.REDDIT],
+            sources=[SourceLabels.UNSPLASH, SourceLabels.REDDIT]
         )
 
         result = reconciler.run(targets=targets)
@@ -184,7 +183,7 @@ class Reconciler:
         if dry_run:
             logger.warning("Reconciler initialised in DRY RUN mode — no DB writes will occur.")
 
-    def run(self, targets: List[ScanTarget]) -> ReconciliationResult:
+    def run(self, targets: list[ScanTarget]) -> ReconciliationResult:
         """
         Execute the two-pass reconciliation.
 
@@ -205,7 +204,7 @@ class Reconciler:
         disk_hashes: set[str] = set()
 
         for target in targets:
-            image_files: List[Path] = self._collect_image_files(target.directory)
+            image_files: list[Path] = self._collect_image_files(target.directory)
             result.directories_scanned += 1
 
             logger.info(
@@ -300,7 +299,7 @@ class Reconciler:
             PIL.UnidentifiedImageError: If the file cannot be opened as an image.
             ValueError: If the image format is not in AcceptedImageFormats.
         """
-        # in the image_properties.py method, i believe it alludes to this Image.Image object already existing externally/
+        # in the image_properties.py method, I believe it alludes to this Image.Image object already existing externally/
         # would that make this redundant?
         with Image.open(BytesIO(raw_bytes)) as img:
             props: ImageProperties = ImageProperties.from_pil(
@@ -332,7 +331,7 @@ class Reconciler:
         )
 
     @staticmethod
-    def _collect_image_files(directory: Path) -> List[Path]:
+    def _collect_image_files(directory: Path) -> list[Path]:
         """
         Collect all accepted image files in a directory (flat scan, non-recursive).
 
