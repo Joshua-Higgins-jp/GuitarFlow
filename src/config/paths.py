@@ -53,7 +53,6 @@ UTILS_DIR:              Path = _validate_and_log(name="UTILS_DIR",            pa
 DB_PATH:                Path = _validate_and_log(name="DB_PATH",              path=DATA_DIR / "data.db")
 DATA_VERSIONS_DIR:      Path = _validate_and_log(name="DATA_VERSIONS_DIR",    path=DATA_DIR / "data_versions")
 CORRUPT_DIR:            Path = _validate_and_log(name="CORRUPT_DIR",          path=DATA_DIR / "corrupt")
-SPLITS_DIR:             Path = _validate_and_log(name="SPLITS_DIR",           path=DATA_DIR / "splits")
 RAW_DIR:                Path = _validate_and_log(name="RAW_DIR",              path=DATA_DIR / "raw")
 
 ACOUSTIC_DIR:           Path = _validate_and_log(name="ACOUSTIC_DIR",         path=RAW_DIR / "acoustic")
