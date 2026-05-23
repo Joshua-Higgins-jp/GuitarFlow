@@ -21,7 +21,7 @@ def prepare_training_data_db_pipeline():
     # Build scan targets
     scan_targets: list[ScanTarget] = build_scan_targets(
         labels=[ClassLabels.ACOUSTIC, ClassLabels.ELECTRIC, ClassLabels.NOT_GUITAR],
-        sources=[SourceLabels.UNSPLASH, SourceLabels.MIXED],
+        sources=[SourceLabels.UNSPLASH, SourceLabels.PIXABAY, SourceLabels.MIXED],
     )
 
     # Init reconciler
