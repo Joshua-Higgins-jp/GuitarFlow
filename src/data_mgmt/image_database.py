@@ -407,36 +407,36 @@ class DatabaseManager:
 
         return updated
 
-    def confirm_active(self, image_hash: str, last_seen: datetime) -> bool:
-        """
-        Confirm an image is still present on disk.
-
-        Updates last_seen and ensures status is 'active'. Lightweight
-        confirmation used by the reconciler on every run.
-
-        Args:
-            image_hash: SHA-256 hex digest.
-            last_seen: Timestamp of when the file was confirmed on disk.
-
-        Returns:
-            True if the record was updated, False if hash not found.
-        """
-        with self._get_connection() as conn:
-            cursor = conn.execute(
-                """
-                UPDATE image_metadata
-                SET status    = 'active',
-                    last_seen = ?
-                WHERE image_hash = ?
-                """,
-                (last_seen.isoformat(), image_hash)
-            )
-            updated: bool = cursor.rowcount > 0
-
-        if not updated:
-            logger.warning(f"confirm_active: hash {image_hash[:12]}... not found in DB")
-
-        return updated
+    # def confirm_active(self, image_hash: str, last_seen: datetime) -> bool:
+    #     """
+    #     Confirm an image is still present on disk.
+    #
+    #     Updates last_seen and ensures status is 'active'. Lightweight
+    #     confirmation used by the reconciler on every run.
+    #
+    #     Args:
+    #         image_hash: SHA-256 hex digest.
+    #         last_seen: Timestamp of when the file was confirmed on disk.
+    #
+    #     Returns:
+    #         True if the record was updated, False if hash not found.
+    #     """
+    #     with self._get_connection() as conn:
+    #         cursor = conn.execute(
+    #             """
+    #             UPDATE image_metadata
+    #             SET status    = 'active',
+    #                 last_seen = ?
+    #             WHERE image_hash = ?
+    #             """,
+    #             (last_seen.isoformat(), image_hash)
+    #         )
+    #         updated: bool = cursor.rowcount > 0
+    #
+    #     if not updated:
+    #         logger.warning(f"confirm_active: hash {image_hash[:12]}... not found in DB")
+    #
+    #     return updated
 
     def bulk_mark_missing(self, image_hashes: Set[str]) -> int:
         """
@@ -501,3 +501,71 @@ class DatabaseManager:
             logger.warning(f"delete: hash {image_hash[:12]}... not found")
 
         return deleted
+
+    def get_all_active_filename_records(self) -> list[dict]:
+        """
+        Return all active rows with the fields needed to reconstruct their expected path.
+
+        Only ACTIVE rows are returned — rows already marked MISSING are skipped
+        since they are handled by bulk_mark_missing() in Pass 2.
+
+        Returns:
+            List of dicts with keys: image_hash, filename, label, source.
+        """
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT image_hash, filename, label, source
+                  FROM image_metadata
+                 WHERE status = ?
+                """,
+                (StatusLabels.ACTIVE.value,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def confirm_active(
+            self,
+            image_hash: str,
+            last_seen: datetime,
+            current_filename: str,
+    ) -> None:
+        """
+        Confirm a known hash is still present on disk.
+
+        Updates status to ACTIVE and refreshes last_seen. Also reconciles the
+        stored filename against what was actually found on disk — logs a warning
+        if they differ, which indicates a rename or duplicate content under a
+        different name.
+
+        Args:
+            image_hash: SHA-256 hex digest identifying the record.
+            last_seen: Timestamp of this reconciliation run.
+            current_filename: Bare filename of the file found on disk this run.
+        """
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT filename FROM image_metadata WHERE image_hash = ?",
+                (image_hash,),
+            ).fetchone()
+
+            if row and row["filename"] != current_filename:
+                logger.warning(
+                    f"Filename drift — hash {image_hash[:12]}... | "
+                    f"stored: '{row['filename']}' → found: '{current_filename}'"
+                )
+
+            conn.execute(
+                """
+                UPDATE image_metadata
+                   SET status    = ?,
+                       last_seen = ?,
+                       filename  = ?
+                 WHERE image_hash = ?
+                """,
+                (
+                    StatusLabels.ACTIVE.value,
+                    last_seen.isoformat(),
+                    current_filename,
+                    image_hash
+                ),
+            )
