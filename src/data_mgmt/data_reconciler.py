@@ -183,12 +183,23 @@ class Reconciler:
         if dry_run:
             logger.warning("Reconciler initialised in DRY RUN mode — no DB writes will occur.")
 
-    def run(self, targets: list[ScanTarget]) -> ReconciliationResult:
+    def run(self, targets: list[ScanTarget], validate_paths: bool = False) -> ReconciliationResult:
         """
-        Execute the two-pass reconciliation.
+        Execute the two-pass reconciliation, with an optional third path-validation pass.
+
+        Pass 1 (filesystem -> DB): hash-based upsert of all files on disk.
+        Pass 2 (set difference):   mark any DB hash absent from disk as missing.
+        Pass 3 (DB -> filesystem): row-by-row filename existence check for all
+                                   active records. Catches the stale-filename bug
+                                   where a hash is known but the file it points to
+                                   has been renamed or deleted. Only runs when
+                                   validate_paths=True.
 
         Args:
             targets: List of ScanTarget objects as returned by build_scan_targets().
+            validate_paths: If True, run Pass 3 after Pass 2. Recommended whenever
+                            you suspect manual file deletions or renames have occurred.
+                            Safe to run on every reconciliation for sub-2000 datasets.
 
         Returns:
             ReconciliationResult with aggregated counts.
@@ -204,19 +215,17 @@ class Reconciler:
         disk_hashes: set[str] = set()
 
         for target in targets:
-            image_files: list[Path] = self._collect_image_files(target.directory)
+            image_files: list[Path] = self._collect_image_files(directory=target.directory)
             result.directories_scanned += 1
 
-            logger.info(
-                f"Scanning {target.directory} — {len(image_files)} image files found"
-            )
+            logger.info(f"Scanning {target.directory} — {len(image_files)} image files found")
 
             for filepath in image_files:
                 result.files_scanned += 1
 
                 try:
                     raw_bytes: bytes = filepath.read_bytes()
-                    image_hash: str = sha256_from_bytes(raw_bytes)
+                    image_hash: str = sha256_from_bytes(data=raw_bytes)
 
                 except Exception as e:
                     logger.error(f"Failed to read/hash {filepath.name}: {e}")
@@ -227,10 +236,15 @@ class Reconciler:
 
                 if image_hash in db_hashes:
                     if not self.dry_run:
-                        self.db_manager.confirm_active(image_hash=image_hash, last_seen=now)
+                        self.db_manager.confirm_active(
+                            image_hash=image_hash,
+                            last_seen=now,
+                            current_filename=filepath.name,  # ilename drift check
+                        )
 
                     result.already_active += 1
                     logger.debug(f"Confirmed active: {image_hash[:12]}...")
+
                 else:
                     try:
                         record: ImageRecordModel = self._build_record(
@@ -243,11 +257,14 @@ class Reconciler:
                         if not self.dry_run:
                             self.db_manager.insert(record)
                             db_hashes.add(image_hash)
+
                         result.newly_ingested += 1
+
                         logger.info(
                             f"{'[DRY RUN] Would ingest' if self.dry_run else 'Ingested'}: "
                             f"{filepath.name} ({image_hash[:12]}...)"
                         )
+
                     except Exception as e:
                         logger.error(f"Failed to ingest {filepath.name}: {e}")
                         result.failed_ingestions += 1
@@ -264,8 +281,67 @@ class Reconciler:
         else:
             logger.info("Pass 2: no missing images detected")
 
+        # ---- Pass 3: row-by-row filename existence check ----
+        if validate_paths:
+            logger.info("Pass 3: validating file paths for all active records...")
+            stale_hashes: set[str] = self._find_stale_path_hashes()
+
+            if stale_hashes:
+                logger.warning(f"Pass 3: {len(stale_hashes)} active records point to non-existent files")
+                if not self.dry_run:
+                    result.marked_missing += self.db_manager.bulk_mark_missing(stale_hashes)
+                else:
+                    result.marked_missing += len(stale_hashes)
+                    logger.info(f"[DRY RUN] Would mark {len(stale_hashes)} stale-path records as missing")
+            else:
+                logger.info("Pass 3: all active records have valid file paths")
+
         result.log_summary()
         return result
+
+    def _find_stale_path_hashes(self) -> set[str]:
+        """
+        Check every active DB row's expected file path and return hashes whose
+        file no longer exists on disk.
+
+        Reconstructs the expected path as RAW_DIR / label / source / filename,
+        mirroring the structure that build_scan_targets() operates on.
+
+        Returns:
+            Set of image_hash values whose expected file path does not exist on disk.
+        """
+        stale: set[str] = set()
+        records: list[dict] = self.db_manager.get_all_active_filename_records()
+
+        for record in records:
+            expected_path: Path = self._build_expected_path(
+                label=record["label"],
+                source=record["source"],
+                filename=record["filename"],
+            )
+            if not expected_path.exists():
+                logger.warning(
+                    f"Stale path — hash {record['image_hash'][:12]}... "
+                    f"points to missing file: {expected_path}"
+                )
+                stale.add(record["image_hash"])
+
+        return stale
+
+    @staticmethod
+    def _build_expected_path(label: str, source: str, filename: str) -> Path:
+        """
+        Reconstruct the expected on-disk path for a given DB record.
+
+        Args:
+            label: The class label value (e.g. electric).
+            source: The source label value (e.g. unsplash).
+            filename: The bare filename stored in the DB.
+
+        Returns:
+            Absolute Path to where the file should exist under RAW_DIR.
+        """
+        return RAW_DIR / label / source / filename
 
     @staticmethod
     def _build_record(
