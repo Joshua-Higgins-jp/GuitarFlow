@@ -166,7 +166,6 @@ class Reconciler:
         result = reconciler.run(targets=targets)
         result.log_summary()
     """
-
     def __init__(self, db_manager: DatabaseManager, dry_run: bool = False) -> None:
         """
         Initialise the reconciler.
