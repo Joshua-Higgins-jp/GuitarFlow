@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 from PIL import Image
 from loguru import logger
 
@@ -65,6 +66,51 @@ def _build_quarantine_name(path: Path, root: Path) -> str:
     return path.name
 
 
+def is_pixel_valid(
+        arr: np.ndarray,
+        path: Path
+) -> bool:
+    """
+    Check whether a decoded image array contains meaningful pixel data.
+
+    Intended to be called immediately after PIL decode — the caller opens
+    the image and converts to a float32 RGB array, then passes it here.
+    No IO is performed by this function.
+
+    Catches four degenerate conditions that structural checks miss:
+        1. Empty array after decode.
+        2. Non-finite values (NaN or Inf) after float conversion.
+        3. Zero variance — solid colour, all-black, all-white.
+        4. Suspiciously low dynamic range (< 10 on 0-255 scale).
+
+    Args:
+        arr: Float32 numpy array of shape (H, W, 3), already decoded by caller.
+        path: Path to the source file, used only for logging.
+
+    Returns:
+        True if pixel data appears valid for training. False otherwise.
+    """
+    if arr.size == 0:
+        logger.warning(f"Empty array after decode: {path.name}")
+        return False
+
+    if not np.isfinite(arr).all():
+        logger.warning(f"Non-finite pixel values (NaN/Inf): {path.name}")
+        return False
+
+    pixel_range: float = float(arr.max() - arr.min())
+
+    if pixel_range == 0:
+        logger.warning(f"Zero variance (solid colour): {path.name}")
+        return False
+
+    if pixel_range < 10:
+        logger.warning(f"Suspiciously low dynamic range ({pixel_range:.1f}): {path.name}")
+        return False
+
+    return True
+
+
 # ── core logic ────────────────────────────────────────────────────────────────
 
 def find_truncated_and_quarantine(
@@ -101,9 +147,13 @@ def find_truncated_and_quarantine(
     for path in candidates:
         try:
             with Image.open(path) as img:
-                img.convert(mode="RGB")
+                arr = np.array(img.convert(mode="RGB"), dtype=np.float32)
+
+            if not is_pixel_valid(arr=arr, path=path):
+                bad.append(path)
+
         except Exception as exc:
-            logger.warning(f"Corrupt: {path}  ({exc})")
+            logger.warning(f"Corrupt (structural): {path}  ({exc})")
             bad.append(path)
 
     logger.info(f"Scan complete — {len(bad)} corrupt / {len(candidates)} total")
