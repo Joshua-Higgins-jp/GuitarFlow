@@ -17,6 +17,14 @@ class ClassLabels(StrEnum):
     def as_tuple(cls) -> Tuple[str, ...]:
         return tuple(member.value for member in cls)
 
+    @classmethod
+    def as_list(cls) -> list[str]:
+        return list(member.value for member in cls)
+
+
+CLASS_NAMES: list[str] = ClassLabels.as_list()
+CLASS_TO_IDX: dict[str, int] = {name: idx for idx, name in enumerate(CLASS_NAMES)}
+
 
 class SplitLabels(StrEnum):
     """
