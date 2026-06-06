@@ -22,10 +22,6 @@ class ClassLabels(StrEnum):
         return list(member.value for member in cls)
 
 
-CLASS_NAMES: list[str] = ClassLabels.as_list()
-CLASS_TO_IDX: dict[str, int] = {name: idx for idx, name in enumerate(CLASS_NAMES)}
-
-
 class SplitLabels(StrEnum):
     """
     test, train, or split
@@ -86,3 +82,10 @@ class AcceptedImageFormats(StrEnum):
         if include_dot:
             return frozenset(f".{member.value}" for member in cls)
         return frozenset(member.value for member in cls)
+
+
+CLASS_NAMES: list[str] = ClassLabels.as_list()
+CLASS_TO_IDX: dict[str, int] = {name: idx for idx, name in enumerate(CLASS_NAMES)}
+
+IMAGENET_MEAN: list[float] = [0.485, 0.456, 0.406]
+IMAGENET_STD: list[float]  = [0.229, 0.224, 0.225]
