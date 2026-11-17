@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Union, Tuple
+from typing import Union
 
 import torch
 import torch.nn as nn
@@ -9,7 +9,7 @@ from loguru import logger
 from torchvision import models, transforms
 from torchvision.models import ResNet
 
-from config.globals import ClassLabels
+from guitarflow_common.constants.class_labels import ClassLabels
 
 # DEVICE: torch.device = torch.device(
 #     "cuda" if torch.cuda.is_available()
@@ -34,7 +34,7 @@ eval_transform = transforms.Compose(
 def load_classification_model(
         weights_path: Path,
         device: Union[torch.device, str] = DEVICE,
-        class_names: Tuple[str, ...] = CLASS_NAMES
+        class_names: tuple[str, ...] = CLASS_NAMES
 ) -> nn.Module:
     """
     Rebuild the ResNet18 architecture and load saved weights.
@@ -59,7 +59,7 @@ def load_classification_model(
 def classification_predict(
         image: Union[Path, Image.Image],
         model: nn.Module
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Run inference on a single guitar image.
 
@@ -84,11 +84,7 @@ def classification_predict(
     scores    = {name: round(probs[i].item(), 4) for i, name in enumerate(CLASS_NAMES)}
     predicted = max(scores, key=scores.get)
 
-    logger.info(
-        "{} → {}  ({})",
-        label,
-        predicted,
-        ", ".join(f"{name}: {score:.1%}" for name, score in scores.items()),
-    )
+    res: str = ", ".join(f"{name}: {score:.1%}" for name, score in scores.items())
+    logger.info(f"{label} → {predicted}  ({res})")
 
     return scores
