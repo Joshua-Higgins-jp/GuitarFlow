@@ -6,7 +6,7 @@ def sha256_from_bytes(data: bytes) -> str:
     """
     Compute the SHA-256 hex digest of raw bytes.
 
-    Used for hashing in-memory image data (e.g. uploaded files,
+    Used for hashing in-memory image dataset (e.g. uploaded files,
     network payloads) where the bytes are already buffered.
 
     Args:
