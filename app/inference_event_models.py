@@ -1,9 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from config.globals import ClassLabels, AcceptedImageFormats
+from guitarflow_common.config import UTC_TIMEZONE
+from guitarflow_common.constants.accepted_image_formats import AcceptedImageFormats
+from guitarflow_common.constants.class_labels import ClassLabels
 
 
 class ClassProbabilities(BaseModel):
@@ -53,7 +55,7 @@ class InferenceEvent(BaseModel):
     # output
     predicted_class: ClassLabels
     confidence_score: float = Field(ge=0.0, le=1.0)
-    all_class_probabilities: ClassProbabilities
+    class_probabilities: ClassProbabilities
     inference_latency_ms: float = Field(ge=0.0)
 
     @field_validator("image_capture_timestamp")
@@ -61,4 +63,4 @@ class InferenceEvent(BaseModel):
     def must_be_utc(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
             raise ValueError("timestamp must be timezone-aware (UTC)")
-        return v.astimezone(timezone.utc)
+        return v.astimezone(tz=UTC_TIMEZONE)

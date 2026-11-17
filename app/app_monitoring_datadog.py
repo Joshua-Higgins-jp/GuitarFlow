@@ -4,8 +4,8 @@ from datadog_api_client.v2.model.http_log import HTTPLog
 from datadog_api_client.v2.model.http_log_item import HTTPLogItem
 from loguru import logger
 
-from monitoring.inference_event_models import InferenceEvent
-from app_settings import ENV, DATADOG_API_KEY, DATADOG_SITE
+from app_settings import DATADOG_API_KEY, DATADOG_SITE, ENV
+from inference_event_models import InferenceEvent
 
 
 def _get_configuration() -> Configuration:
@@ -82,4 +82,4 @@ def send_inference_event(event: InferenceEvent) -> None:
         )
 
     except Exception as e:
-        logger.error(f"Failed to send inference event to Datadog | cause={e}")
+        logger.error(f"Failed to send inference event to Datadog, cause={e}")

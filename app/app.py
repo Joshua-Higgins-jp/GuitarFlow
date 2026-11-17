@@ -8,21 +8,20 @@ import streamlit as st
 from PIL import Image
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
+from app_monitoring_datadog import send_inference_event
 from app_settings import APP_DEBUG_MODE
-from config.globals import ClassLabels, AcceptedImageFormats
-from config.paths import MODELS_DIR
-from models.prediction import classification_predict, load_classification_model
-from monitoring.app_monitoring_datadog import send_inference_event
-from monitoring.inference_event_models import ClassProbabilities, InferenceEvent
-from utils.dt_timestamps import get_dt_now_utc
-from utils.image_metadata import ImageMetadata
+from guitarflow_common.constants.accepted_image_formats import AcceptedImageFormats
+from guitarflow_common.constants.class_labels import ClassLabels
+from guitarflow_common.prediction import load_classification_model, classification_predict
+from guitarflow_common.utils.dt_get import get_dt_now_utc
+from inference_event_models import InferenceEvent, ClassProbabilities
 
 
 @st.cache_resource
-def get_model(model_name: str = "guitar_classifier.pth"):
-    model_path: Path = MODELS_DIR / model_name
-    if not model_path.exists():
-        raise FileNotFoundError(f"Model {model_name} not found.")
+def get_model(model_dir: Path, model_name: str):
+    model_path: Path = model_dir / model_name
+    if not model_path.is_file():
+        raise FileNotFoundError(f"Model {model_name} not found")
 
     return load_classification_model(weights_path=model_path)
 
@@ -97,11 +96,11 @@ if image and metadata:
                 image_width_px=metadata.width_px,
                 image_height_px=metadata.height_px,
                 image_format=metadata.image_format,
-                image_file_size_bytes=metadata.file_size_bytes,
+                image_filesize_bytes=metadata.file_size_bytes,
                 num_channels=metadata.num_channels,
                 predicted_class=ClassLabels(predicted),
                 confidence_score=scores[predicted],
-                all_class_probabilities=ClassProbabilities(**scores),
+                class_probabilities=ClassProbabilities(**scores),
                 inference_latency_ms=inference_time_ms,
             )
 
