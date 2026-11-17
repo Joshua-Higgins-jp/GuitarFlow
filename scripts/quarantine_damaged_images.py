@@ -10,9 +10,9 @@ import numpy as np
 from PIL import Image
 from loguru import logger
 
-from config.globals import AcceptedImageFormats
-from config.paths import CORRUPT_DIR, RAW_DIR, LOGS_DIR
-from monitoring.logging_manager import LoggingManager
+from common import AcceptedImageFormats
+from common import CORRUPT_DIR, RAW_DIR, LOGS_DIR
+from monitoring import LoggingManager
 
 """
 TO RUN:
@@ -36,8 +36,8 @@ def _build_quarantine_name(path: Path, root: Path) -> str:
 
     Example
     -------
-    root  = /data/raw
-    path  = /data/raw/dogs/flickr/image001.jpg
+    root  = /dataset/raw
+    path  = /dataset/raw/dogs/flickr/image001.jpg
     parts = ['dogs', 'flickr']
     →       image001__dogs_flickr.jpg
 
@@ -71,7 +71,7 @@ def is_pixel_valid(
         path: Path
 ) -> bool:
     """
-    Check whether a decoded image array contains meaningful pixel data.
+    Check whether a decoded image array contains meaningful pixel dataset.
 
     Intended to be called immediately after PIL decode — the caller opens
     the image and converts to a float32 RGB array, then passes it here.
@@ -88,7 +88,7 @@ def is_pixel_valid(
         path: Path to the source file, used only for logging.
 
     Returns:
-        True if pixel data appears valid for training. False otherwise.
+        True if pixel dataset appears valid for training. False otherwise.
     """
     if arr.size == 0:
         logger.warning(f"Empty array after decode: {path.name}")
@@ -121,7 +121,7 @@ def find_truncated_and_quarantine(
     """
     Walk root recursively and attempt to fully load every image.
 
-    PIL's Image.open() is lazy — it does not read pixel data until load()
+    PIL's Image.open() is lazy — it does not read pixel dataset until load()
     is called or an operation requires it. Converting to RGB forces a full
     pixel decode, matching what a training pipeline does.
 
@@ -222,4 +222,5 @@ if __name__ == "__main__":
         session_name="quarantine_script"
     )
     # then run the code
-    main()
+    # main(argv=["--dry-run"])  # when running from pycharm
+    main()  # when running from CLI
