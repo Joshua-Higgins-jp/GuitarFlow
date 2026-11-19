@@ -6,35 +6,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from PIL import Image
 from loguru import logger
-from torchvision import models, transforms
-from torchvision.models import ResNet
+from torchvision.transforms import Compose, Resize, ToTensor, Normalize
+from torchvision.models import ResNet, resnet18
 
-from guitarflow_common.constants.class_labels import ClassLabels
+from common.constants.torch_devices import TorchDevices
+from common.config import IMAGENET_MEAN, IMAGENET_STD, IMG_SIZE
 
-# DEVICE: torch.device = torch.device(
-#     "cuda" if torch.cuda.is_available()
-#     else "mps" if torch.backends.mps.is_available()
-#     else "cpu"
-# )
-DEVICE = torch.device("cpu")
-CLASS_NAMES = ClassLabels.as_tuple()
-
-IMG_SIZE = (224, 224)
-MEAN = [0.485, 0.456, 0.406]
-STD  = [0.229, 0.224, 0.225]
-
-eval_transform = transforms.Compose(
-    transforms=[
-        transforms.Resize(IMG_SIZE),
-        transforms.ToTensor(),
-        transforms.Normalize(MEAN, STD)
-    ]
-)
 
 def load_classification_model(
         weights_path: Path,
-        device: Union[torch.device, str] = DEVICE,
-        class_names: tuple[str, ...] = CLASS_NAMES
+        device: TorchDevices,
+        class_names: tuple[str, ...]
 ) -> nn.Module:
     """
     Rebuild the ResNet18 architecture and load saved weights.
@@ -47,7 +29,7 @@ def load_classification_model(
     Returns:
         Model in eval mode, moved to the appropriate device.
     """
-    model: ResNet = models.resnet18(weights=None)
+    model: ResNet = resnet18(weights=None)
     model.fc = nn.Linear(in_features=model.fc.in_features, out_features=len(class_names))
     model.load_state_dict(state_dict=torch.load(f=weights_path, map_location=device))
     model.to(device)
@@ -76,6 +58,17 @@ def classification_predict(
     else:
         pil_image = image.convert("RGB")
         label = repr(image)  # e.g. "<PIL.JpegImagePlugin ... >"
+
+    eval_transform: Compose = Compose(
+        transforms=[
+            Resize(size=IMG_SIZE),
+            ToTensor(),
+            Normalize(
+                mean=IMAGENET_MEAN,
+                std=IMAGENET_STD
+            )
+        ]
+    )
 
     tensor = eval_transform(pil_image).unsqueeze(0).to(DEVICE)  # (1, 3, 224, 224)
     logits = model(tensor)
