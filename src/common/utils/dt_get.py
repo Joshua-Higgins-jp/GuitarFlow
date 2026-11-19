@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from guitarflow_common.config import UTC_TIMEZONE, JST_TIMEZONE
+from common.config import UTC_TIMEZONE, JST_TIMEZONE
 
 
 def get_dt_now_jst() -> datetime:
