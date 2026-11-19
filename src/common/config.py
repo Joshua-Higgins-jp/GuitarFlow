@@ -7,7 +7,9 @@ from common.constants.torch_devices import TorchDevices
 JST_TIMEZONE = ZoneInfo(key="Asia/Tokyo")
 UTC_TIMEZONE = ZoneInfo(key="UTC")
 
-PII_SAFE_FORMAT: str = "%Y_%m_%d__%H_%M_%S"
+PII_SAFE_DT_FORMAT: str = "%Y_%m_%d__%H_%M_%S"
+SESSION_ID_DT_STR_FORMAT = "%Y%m%d_%H%M%S_%Z"
+
 
 DIRS_PATHS_LOG_NAME_WIDTH: int = 23
 DB_NAME: str = "image_dataset.sqlite3"
