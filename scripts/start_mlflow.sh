@@ -9,7 +9,7 @@
 # 3. Open http://localhost:5000
 
 ######## NOTE ########
-# The mlflow-data/ volume persists all experiment runs between container restarts.
+# The mlflow-dataset/ volume persists all experiment runs between container restarts.
 
 set -euo pipefail
 
