@@ -16,6 +16,8 @@ Usage:
 """
 from dataclasses import dataclass
 
+from common.globals import IMG_SIZE
+
 
 @dataclass(frozen=True)
 class TrainingConfig:
@@ -93,5 +95,5 @@ class TrainingConfig:
     lr:          float            = 3e-3  # 0.003
     val_split:   float            = 0.15
     test_split:  float            = 0.15
-    img_size:    tuple[int, int]  = (224, 224)
+    img_size:    tuple[int, int]  = IMG_SIZE
     random_seed: int              = 42
