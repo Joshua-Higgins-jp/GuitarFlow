@@ -3,9 +3,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from guitarflow_common.config import UTC_TIMEZONE
-from guitarflow_common.constants.accepted_image_formats import AcceptedImageFormats
-from guitarflow_common.constants.class_labels import ClassLabels
+from common.config import UTC_TIMEZONE
+from common.constants.accepted_image_formats import AcceptedImageFormats
+from common.constants.class_labels import ClassLabels
 
 
 class ClassProbabilities(BaseModel):
@@ -13,7 +13,7 @@ class ClassProbabilities(BaseModel):
     Softmax output probabilities for each guitar classification class.
 
     All three fields should sum to approximately 1.0. Each value is the
-    raw probability assigned by the model to that class.
+    images_raw probability assigned by the model to that class.
     """
     model_config = ConfigDict(populate_by_name=True)
 
@@ -36,7 +36,7 @@ class InferenceEvent(BaseModel):
     same user session.
 
     Notes:
-        hash="SHA-256 hex digest of the raw image bytes. Used for deduplication."
+        hash="SHA-256 hex digest of the images_raw image bytes. Used for deduplication."
     """
     event_id: UUID = Field(default_factory=uuid4)
     image_capture_timestamp: datetime
