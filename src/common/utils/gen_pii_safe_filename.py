@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from guitarflow_common.config import PII_SAFE_FORMAT
+from common.config import PII_SAFE_FORMAT
 
 
 def gen_pii_safe_filename(dt: datetime) -> str:
