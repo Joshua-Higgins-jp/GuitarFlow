@@ -5,7 +5,7 @@ from datadog_api_client.v2.model.http_log_item import HTTPLogItem
 from loguru import logger
 
 from app_settings import DATADOG_API_KEY, DATADOG_SITE, ENV
-from inference_event_models import InferenceEvent
+from inference_event import InferenceEvent
 
 
 def _get_configuration() -> Configuration:
