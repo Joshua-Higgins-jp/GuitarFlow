@@ -16,7 +16,7 @@ Usage:
 """
 from dataclasses import dataclass
 
-from common.globals import IMG_SIZE
+from common.config import IMG_SIZE
 
 
 @dataclass(frozen=True)
