@@ -1,4 +1,4 @@
-from common.torch_devices import TorchDevices
+from common.constants.torch_devices import TorchDevices
 from common.utils.read_dotenv import load_env_var
 
 
