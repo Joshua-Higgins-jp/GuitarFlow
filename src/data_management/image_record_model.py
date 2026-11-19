@@ -4,14 +4,17 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from config.globals import ClassLabels, SourceLabels, StatusLabels, AcceptedImageFormats
+from common.constants.accepted_image_formats import AcceptedImageFormats
+from common.constants.class_labels import ClassLabels
+from common.constants.source_labels import SourceLabels
+from common.constants.status_labels import StatusLabels
 
 
 class ImageRecordModel(BaseModel):
     """
     Single image metadata record - this is for LOCAL images.
 
-    Identity is the SHA-256 hash of the raw image bytes - not a UUID.
+    Identity is the SHA-256 hash of the images_raw image bytes - not a UUID.
     This means the same image content is always the same record, regardless
     of filename, location, or how many times it disappears and reappears.
 
@@ -54,9 +57,9 @@ class ImageRecordModel(BaseModel):
         There is no actual validation the image exists at this path. That should be checked by the caller.
 
         Args:
-            raw_dir: Root of the raw image data directory (e.g. DATA_DIR / raw).
+            raw_dir: Root of the images_raw image dataset directory (e.g. DATA_DIR / images_raw).
 
         Returns:
-            Expected path e.g. raw/electric/unsplash/abc123.jpg
+            Expected path e.g. images_raw/electric/unsplash/abc123.jpg
         """
         return raw_dir / self.label.value / self.source.value / f"{self.filename}"
