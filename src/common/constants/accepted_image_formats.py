@@ -10,6 +10,7 @@ class AcceptedImageFormats(StrEnum):
     JPG = "jpg"
     PNG = "png"
     WEBP = "webp"
+    HEIC = "heic"
 
     @classmethod
     def as_tuple(cls, include_dot: bool = False) -> Tuple[str, ...]:
