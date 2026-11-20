@@ -12,11 +12,13 @@ class AcceptedImageFormats(StrEnum):
     WEBP = "webp"
 
     @classmethod
-    def as_tuple(cls) -> Tuple[str, ...]:
+    def as_tuple(cls, include_dot: bool = False) -> Tuple[str, ...]:
+        if include_dot:
+            return tuple(f".{member.value}" for member in cls)
         return tuple(member.value for member in cls)
 
     @classmethod
-    def as_frozen_set(cls, include_dot: bool = False) -> frozenset[str]:
+    def as_frozenset(cls, include_dot: bool = False) -> frozenset[str]:
         if include_dot:
             return frozenset(f".{member.value}" for member in cls)
         return frozenset(member.value for member in cls)
