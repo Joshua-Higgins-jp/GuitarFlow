@@ -38,6 +38,8 @@ class DirsPaths:
         IMG_RAW_DIR: Root directory of the raw image data, inside the data directory. Class subfolders
             (acoustic, electric, not guitar) are managed externally by the training logic.
         DATASETS_DIR: Directory holding the CSV files for training datasets, inside the data directory.
+        QUARANTINE_DIR: Directory holding quarantine data, inside the data directory. This is data
+            which is not considered system files or image data for training.
         DB_PATH: Path to the database file, inside the data directory.
         MODELS_DIR: Directory holding model files.
     """
@@ -54,6 +56,7 @@ class DirsPaths:
     DATA_DIR: Path
     IMG_RAW_DIR: Path
     DATASETS_DIR: Path
+    QUARANTINE_DIR: Path
     DB_PATH: Path
     MODELS_DIR: Path
 
@@ -89,6 +92,7 @@ class DirsPaths:
         data_dir: Path = validate_dir_and_log(name="DATA_DIR", path=project_dir / "data")
         img_raw_dir: Path = validate_dir_and_log(name="IMG_RAW_DIR", path=data_dir / "images_raw")
         datasets_dir: Path = validate_dir_and_log(name="DATASETS_DIR", path=data_dir / "datasets")
+        quarantine_dir: Path = validate_dir_and_log(name="QUARANTINE_DIR", path=data_dir / "quarantine")
         db_path: Path = validate_fp_and_log(name="DB_PATH", filepath=data_dir / DB_NAME)
         models_dir: Path = validate_dir_and_log(name="MODELS_DIR", path=project_dir / "models")
 
@@ -104,6 +108,7 @@ class DirsPaths:
             DATA_DIR=data_dir,
             IMG_RAW_DIR=img_raw_dir,
             DATASETS_DIR=datasets_dir,
+            QUARANTINE_DIR=quarantine_dir,
             DB_PATH=db_path,
             MODELS_DIR=models_dir,
         )
