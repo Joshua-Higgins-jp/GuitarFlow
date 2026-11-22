@@ -1,4 +1,5 @@
-import csv
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Iterator, Optional
 
@@ -6,59 +7,134 @@ from loguru import logger
 
 from common.constants.accepted_image_formats import AcceptedImageFormats
 from common.constants.class_labels import ClassLabels
-from common.constants.session_id import SessionID
-from data_management.image_reference import ImageReference
 from common.constants.source_labels import SourceLabels
-from common.utils.safe_move_file import safe_move_file
+from common.utils.rename_file_with_lowercase_extension import rename_file_with_lowercase_extension
+from data_management.image_reference import ImageDatasetFileReference
 
 
-class DatasetFileManager:
+class QuarantineStage(StrEnum):
+    FILESYSTEM__DIR_STRUCTURE_CHECK = "filesystem__dir_structure_check"
+    FILESYSTEM__FILETYPES_CHECK = "filesystem__filetypes_check"
+    FILESYSTEM__DUPLICATES_CHECK = "filesystem__duplicates_check"
+
+    IMAGE = "image"
+    DUPLICATE = "duplicate"
+
+
+@dataclass(frozen=True)
+class UnexpectedDirEvent:
+    directory: Path
+    reason: str
+
+
+@dataclass(frozen=True)
+class ValidateDirStructureResult:
+    results: list[UnexpectedDirEvent]
+
+    @property
+    def has_problems(self) -> bool:
+        return self.num_problems > 0
+
+    @property
+    def num_problems(self) -> int:
+        return len(self.results)
+
+    def log_results(self, relative_to_dir: Path) -> None:
+        for result in self.results:
+            logger.warning(f"Directory `{result.directory.relative_to(relative_to_dir)}` is {result.reason}")
+
+    def runtime_error_str(self) -> str:
+        return (
+            f"{self.num_problems} unexpected directory entries found. "
+            f"Check logs and rectify, then try again."
+        )
+
+
+@dataclass(frozen=True)
+class QuarantineEntry:
+    """
+    One flagged file.
+
+    Attributes:
+        file_reference: The file that should be quarantined.
+        reason: Why the file was quarantined.
+        duplicate_group: Id shared by every copy of an exact duplicate, if that is the reason.
+    """
+    file_reference: ImageDatasetFileReference
+    reason: tuple[str, ...]
+    duplicate_group: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class QuarantineReport:
+    """
+    What one stage found. Returned by every check loop and never acted on by the stage itself.
+
+    Attributes:
+        stage: Which stage produced the report.
+        # checked: How many files the stage looked at.
+        entries: The files it wants quarantined.
+        # warnings: Notes that are logged but do not move anything.
+    """
+    stage: QuarantineStage
+    # checked: int
+    entries: tuple[QuarantineEntry, ...] = ()
+    # warnings: tuple[str, ...] = ()
+
+
+class DatasetDirFilesManager:
     # Finder recreates these constantly, so they are ignored rather than quarantined.
-    IGNORED_FILENAMES: frozenset[str] = frozenset({".DS_Store"})
-    MANIFEST_COLUMNS: tuple[str, ...] = (
-        "filename",
-        "original_dir",
-        "relative_path",
-        "quarantined_filename",
-        "reason"
-    )
+    IGNORED_FILENAMES: frozenset[str] = frozenset({".DS_Store"})  # TODO: what about other file systems like windows and linux? add thumbs.db LOLOL
+
     def __init__(
             self,
-            data_dir: Path,
             images_raw_dir: Path,
-            quarantined_files_dir: Path,
-            session_id: SessionID
     ) -> None:
         """
-        These root directories are guaranteed IF they are assigned after a DirsPaths initialization.
+        DatasetDirFilesManager has 2 jobs:
+        1. Validate the directory structure of the dataset
+            - Ensure expected dirs exist in their expected structure
+            - immediately stop the dataset ingestion pipeline if there are unexpected directories
+              and let the user handle it (may involve manually moving data to correct location)
 
-        The SUBDIRECTORIES under images_raw_dir will be created/validated in this manager.
+        2. Validate that only approved system files and accepted image filetypes exist in the expected directory
+            structure from (1).
+            - Anything that is (a) not an approved system file or (b) not an approved image file, is
+              documented in a QuarentineEntry and these are collected into a QuarantineReport.
 
-        i.e. data/datasets, data/images_raw, data/quarantine, data/mlflow-data exist after DirsPaths intialisaes
-        BUT this class is focused on the substructure of images_raw_dir and quarantined_files_dir
-        (at this point in time it will be flat anyway)
+        Usage:
+        Step 1:
+            Init the object
+
+        Step 2:
+            Run validate_dir_structure() -> ValidateDirStructureResult
+
+        Gate:
+            if validate_dir_structure().has_problems: raise RuntimeError(f"unable to continue due to directory issues... {e}")
+
+        Step 3:
+            Run validate_filetypes() -> QuarantineReport
+
+        The step 3 result is passed in to the QuarantineManager for handling (e.g. generating the csv manifest report, dry_run=False)
+            and the actual logic for csv writing, file moving, extension lowering, etc., logic all exists there.
 
         Args:
-            data_dir: Path to the data directory.
             images_raw_dir: Path to the raw images directory.
-            quarantined_files_dir: Path to the quarantined files directory.
         """
-        self.data_dir: Path = data_dir
         self.images_raw_dir: Path = images_raw_dir
-        self.quarantined_files_dir: Path = quarantined_files_dir
-        self.session_id: SessionID = session_id
-
-        self._accepted_suffixes: tuple[str, ...] = AcceptedImageFormats.as_tuple(include_dot=True)
 
     def _create_image_raw_subdirectories(self) -> None:
-        """creates expected directories. exists ok is True"""
+        """
+        Creates expected training dataset directory structure. exists ok is True
+        """
         for label in ClassLabels:
             for source in SourceLabels:
                 final_dir_path: Path = self.images_raw_dir / label.value / source.value
                 final_dir_path.mkdir(parents=True, exist_ok=True)
 
-    def _assert_images_raw_layout_is_valid(self) -> None:
-        """if anything in the tree is not part of the expected layout, log it and raise out
+    def _assert_images_raw_layout_is_valid(self) -> ValidateDirStructureResult:
+        """
+        if anything in the tree is not part of the expected layout, log it and raise out
 
         The expected layout is images_raw_dir/<label>/<source>/<files>. Anything else is flagged, because it
         would never be reached by the scan: at the root, any entry that is not a label directory; inside each
@@ -68,44 +144,57 @@ class DatasetFileManager:
         Raises:
             RuntimeError: If any unexpected entry is found. Every one is logged first.
         """
-        expected_labels: set[str] = {label.value for label in ClassLabels}
-        expected_sources: set[str] = {source.value for source in SourceLabels}
-        unexpected: list[tuple[Path, str]] = []
+        unexpected_dir_events: list[UnexpectedDirEvent] = []
 
         # Root level: only label directories belong here.
-        for item in sorted(self.images_raw_dir.iterdir()):
-            if item.name in self.IGNORED_FILENAMES:
+        for item_path in sorted(self.images_raw_dir.iterdir()):
+            if item_path.name in self.IGNORED_FILENAMES:
                 continue
-            if not (item.is_dir() and item.name in expected_labels):
-                unexpected.append((item, "not a known label directory"))
+            if not (item_path.is_dir() and item_path.name in ClassLabels.as_set()):
+                unexpected_dir_events.append(UnexpectedDirEvent(
+                    directory=item_path,
+                    reason=f"not an expected label directory.")
+                )
 
         for label in ClassLabels:
             label_dir: Path = self.images_raw_dir / label.value
 
             # Label level: only source directories belong here.
-            for item in sorted(label_dir.iterdir()):
-                if item.name in self.IGNORED_FILENAMES:
+            for item_path in sorted(label_dir.iterdir()):
+                if item_path.name in self.IGNORED_FILENAMES:
                     continue
-                if not (item.is_dir() and item.name in expected_sources):
-                    unexpected.append((item, "not a known source directory"))
+                if not (item_path.is_dir() and item_path.name in SourceLabels.as_set()):
+                    unexpected_dir_events.append(UnexpectedDirEvent(
+                        directory=item_path,
+                        reason=f"not an expected source directory.")
+                    )
 
             # Source level: files only, no subdirectories.
             for source in SourceLabels:
-                for item in sorted((label_dir / source.value).iterdir()):
-                    if item.is_dir():
-                        unexpected.append((item, "subdirectory inside a source directory"))
+                for item_path in sorted((label_dir / source.value).iterdir()):
+                    if item_path.is_dir():
+                        unexpected_dir_events.append(UnexpectedDirEvent(
+                            directory=item_path,
+                            reason=f"a source directory should not have subdirectories.")
+                        )
 
         # If anything is unexpected, log it and raise to stop until the user has corrected their dataset.
-        if unexpected:
-            for path, why in unexpected:
-                logger.warning(f"Unexpected item: {path.relative_to(self.images_raw_dir)} ({why})")
-            raise RuntimeError(
-                f"Found {len(unexpected)} unexpected items in the images raw directory. "
-                f"Clean it up, and try again"
-            )
+        return ValidateDirStructureResult(results=unexpected_dir_events)
+
+
+    def validate_dir_structure(self) -> ValidateDirStructureResult:
+        # 1. Make the expected dir structure
+        self._create_image_raw_subdirectories()
+
+        # 2. Check only the expected dir structure exists. log issues, return structured res object
+        return self._assert_images_raw_layout_is_valid()
+
 
     def _iter_raw_files(self) -> Iterator[tuple[ClassLabels, SourceLabels, Path]]:
-        """Yield every regular file under images_raw_dir/<label>/<source>/, skipping ignored system files.
+        """
+        DOES NOT REMOVE NON-APPROVED IMAGE TYPES
+
+        Yield every regular file under images_raw_dir/<label>/<source>/, skipping ignored system files.
 
         Missing directories are warned about and skipped. Anything that is not a regular file is warned about and
         skipped. Each directory is listed up front, so it is safe to move or rename files while iterating.
@@ -128,156 +217,93 @@ class DatasetFileManager:
                         continue
                     yield label, source, path
 
-    def _resolve_quarantine_path(self, filename: str, reserved: set[str]) -> Path:
-        """Choose a destination in quarantine that does not clash with an existing or already planned file.
+##################### OK UP TO HERE #####################
 
-        The original filename is used if free. Otherwise it becomes session_id__filename, and if that is taken too,
-        session_id__2__filename, session_id__3__filename and so on.
-
-        Args:
-            filename: Original filename of the file being quarantined.
-            reserved: Case-folded destination names already chosen during this run. The chosen name is added to it.
-
-        Returns:
-            A destination path in the quarantine directory.
+    def _find_non_approved_files(self) -> QuarantineReport:
         """
-        candidate: Path = self.quarantined_files_dir / filename
-        attempt = 1
-        while candidate.exists() or candidate.name.casefold() in reserved:
-            tag = self.session_id if attempt == 1 else f"{self.session_id}__{attempt}"
-            candidate = self.quarantined_files_dir / f"{tag}__{filename}"
-            attempt += 1
+        Run this after the directory scanner tool.
 
-        reserved.add(candidate.name.casefold())
-        return candidate
-
-    def _write_manifest(self, rows: list[dict[str, str]], dry_run: bool) -> Optional[Path]:
-        """Write the quarantine manifest CSV for this session.
-
-        Args:
-            rows: One dict per quarantined file, keyed by MANIFEST_COLUMNS.
-            dry_run: If True, the file is named as a dry run manifest.
-
-        Returns:
-            Path of the CSV, or None if there were no rows.
+        Assumumption is that when running this method, the dir layout is ok.
+        We're now going to inspect the file contents and tell non approved typed image files they gotsta go!
         """
-        if not rows:
-            return None
+        quarantine_entry_list: list[QuarantineEntry] = []
+        # Skipping system files, show me all files in the approved directory tree.
+        for file in self._iter_raw_files():
+            label, source, path = file
+            # TODO: what if suffix doesn't exist? that would raise attribute error, no?
+            if path.suffix.lower() not in AcceptedImageFormats.as_tuple(include_dot=True):
+                quarantine = QuarantineEntry(
+                    reference=ImageDatasetFileReference(
+                        images_raw_dir=self.images_raw_dir,
+                        source=source,
+                        label=label,
+                        filename=path.name,
+                    ),
+                    reasons=(f"{label.value}/{source.value}/{path.name} is not of an acceptable dataset image type", ),
+                    duplicate_group=None
+                )
+                quarantine_list.append(quarantine)
 
-        self.quarantined_files_dir.mkdir(parents=True, exist_ok=True)
-        manifest_path: Path = (
-            self.quarantined_files_dir / f"quarantine_manifest_{self.session_id.session_id_str}{'_dry_run' if dry_run else ''}.csv"
+        return QuarantineReport(
+            stage=QuarantineStage.FILESYSTEM__DIR_STRUCTURE_CHECK,
+            entries=tuple(quarantine_list)
         )
-        with manifest_path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=self.MANIFEST_COLUMNS)
-            writer.writeheader()
-            writer.writerows(rows)
-        return manifest_path
 
-    def _scan_and_clean_images_raw_dir(self, dry_run: bool = False) -> Optional[Path]:
-        """Quarantine every file under images_raw_dir that is not an acceptable image type.
 
-        System files such as .DS_Store are ignored. Extensions are compared case-insensitively. The manifest records,
-        for each file, its name, where it was, its path relative to images_raw_dir and what it is called in quarantine.
-        If a move fails part way, the manifest still lists the files moved before the failure.
+    # So now at this point in the pipeline, we've estabilished:
+    #   - the desired dir structure exists
+    #   - no superfluous dirs or sub directories exist
+    #   - we've identified non approved image files
+    #   - if we quarantined all the non approved image files, and ignore system files,
+    #     we're left with the actual dataset (as naive image files, yet to be evaluated)
+    #   -
 
-        Args:
-            dry_run: If True, move nothing and write a dry run manifest of what would be moved.
 
-        Returns:
-            Path of the manifest CSV, or None if nothing needed quarantining.
-        """
-        rows: list[dict[str, str]] = []
-        reserved: set[str] = set()
-        action = "Would move" if dry_run else "Moved"
-
-        logger.info(f"Acceptable image types: {sorted(self._accepted_suffixes)}")
-        try:
-            for _label, _source, path in list(self._iter_raw_files()):
-                if path.suffix.lower() in self._accepted_suffixes:
-                    continue
-
-                reason: str = (
-                    f"extension '{path.suffix}' is not an acceptable image type"
-                    if path.suffix
-                    else "no extension, so it cannot be an acceptable image type"
-                )
-                destination: Path = self._resolve_quarantine_path(path.name, reserved)
-                if not dry_run:
-                    safe_move_file(path, destination)
-
-                rows.append(
-                    {
-                        "filename": path.name,
-                        "original_dir": str(path.parent),
-                        "relative_path": str(path.relative_to(self.images_raw_dir)),
-                        "quarantined_filename": destination.name,
-                        "reason": reason,
-                    }
-                )
-                logger.info(f"{action} to quarantine ({reason}): {path} -> {destination}")
-        # ... finally block unchanged ...
-        finally:
-            manifest_path: Optional[Path] = self._write_manifest(rows, dry_run)
-
-        if manifest_path is None:
-            logger.info("No files needed quarantining")
-        else:
-            logger.warning(f"{'DRY RUN: ' if dry_run else ''}{action} {len(rows)} files. Manifest: {manifest_path}")
-        return manifest_path
-
-    def _rename_file_with_lowercase_extension(self, file_path: Path, dry_run: bool = False) -> None:
-        """only necessary for surviving image files. anything in quarantine can be whatever it was originally
-
-        Args:
-            file_path: Image file whose extension should be lower-cased.
-            dry_run: If True, only log what would be renamed.
-
-        Raises:
-            FileExistsError: If a different file with the lower-cased name already exists.
-        """
-        lowered_path: Path = file_path.with_suffix(suffix=file_path.suffix.lower())
-        if lowered_path.name == file_path.name:
-            return
-
-        # On a case-insensitive filesystem (macOS default) the lowered name resolves to this same file, which is fine.
-        if lowered_path.exists() and not lowered_path.samefile(file_path):
-            raise FileExistsError(f"Cannot lower-case extension, a different file already exists: {lowered_path}")
-
-        logger.info(f"{'Would rename' if dry_run else 'Renaming'}: {file_path.name} -> {lowered_path.name}")
-        if not dry_run:
-            file_path.rename(lowered_path)
-
-    def clean_dataset(self, dry_run: bool = False) -> Optional[Path]:
-        """Make images_raw_dir contain only valid image files with lower-case extensions.
-
-        Steps: create the expected subdirectories, raise if any unexpected subdirectory exists, quarantine
-        non-image files, then lower-case the extensions of the surviving files.
-
-        Args:
-            dry_run: If True, move and rename nothing, and write a dry run manifest instead.
-
-        Returns:
-            Path of the quarantine manifest CSV, or None if nothing needed quarantining.
-
-        Raises:
-            RuntimeError: If any label/source directory contains a subdirectory.
-            FileExistsError: If lower-casing an extension would overwrite a different file.
-        """
+    def scan_dataset_get_quarantine_report(self) -> QuarantineReport:
+        # 1. Ensure desired directory structure exists
         self._create_image_raw_subdirectories()
+
+        # 2. Ensure the desired directory structure ONLY exists.
+        #    Missing or superfluous directories will cause RAISE OUT here
         self._assert_images_raw_layout_is_valid()
 
-        manifest_path: Optional[Path] = self._scan_and_clean_images_raw_dir(dry_run=dry_run)
+        # 3. Now that we have the desired dataset directory structure,
+        #    Let's find any non-system files that aren't image types we want
+        #    and create a quarantine report for them
+        non_approved_image_files: QuarantineReport = self._find_non_approved_files()
 
-        # In a dry run the non-images are still present, so only look at files that would survive.
-        for _label, _source, path in list(self._iter_raw_files()):
-            if path.suffix.lower() in self._accepted_suffixes:
-                self._rename_file_with_lowercase_extension(path, dry_run=dry_run)
+        logger.info(
+            f"Found {len(non_approved_image_files.entries)} files to quarantine from the dataset directory"
+        )
+        return non_approved_image_files
 
-        return manifest_path
 
-    def gen_list_image_refs(self) -> list[ImageReference]:
+    def check_file_extension_lowercases(self) -> None:
+        for file in self._iter_raw_files():
+            label, source, path = file
+            if not path.suffix:
+                logger.warning(f"File {path} does not have an extension, skipping")
+                continue
+
+            if path.suffix.lower() not in AcceptedImageFormats.as_tuple(include_dot=True):
+                logger.warning(f"File {path} is not of image file of acceptable format, skipping")
+                continue
+
+            if path.suffix != path.suffix.lower():
+                logger.warning(f"File {path} is an image file but the extension is not fully lowercase.")
+                rename_file_with_lowercase_extension(
+                    file_path=path,
+                    dry_run=False
+                )
+
+
+    def gen_list_image_refs(self) -> list[ImageDatasetFileReference]:
         """
+        RUN THIS METHOD AFTER clean_dataset()!!!
+
+        THIS METHOD ALLOWS YOU TO GET A LIST OF ImageReference OBJECTS THAT MAP YOUR DATASET!
+        Create this list of ImageReferences and pass that into the DatasetImageQualityManager class.
+
         with a clean raw images dataset directory, we can now generate our reference objects
 
         this output will then feed into the existing DataQualityManager class
@@ -287,8 +313,13 @@ class DatasetFileManager:
         Returns:
             One ImageReference per file under images_raw_dir/<label>/<source>/.
         """
-        references: list[ImageReference] = [
-            ImageReference(images_raw_dir=self.images_raw_dir, source=source, label=label, filename=path.name)
+        references: list[ImageDatasetFileReference] = [
+            ImageDatasetFileReference(
+                images_raw_dir=self.images_raw_dir,
+                source=source,
+                label=label,
+                filename=path.name
+            )
             for label, source, path in self._iter_raw_files()
         ]
         logger.info(f"Generated {len(references)} image references from {self.images_raw_dir}")
