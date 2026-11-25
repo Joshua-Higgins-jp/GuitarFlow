@@ -16,3 +16,7 @@ class ClassLabels(StrEnum):
     @classmethod
     def as_list(cls) -> list[str]:
         return list(member.value for member in cls)
+
+    @classmethod
+    def as_set(cls) -> set[str]:
+        return{member.value for member in cls}
