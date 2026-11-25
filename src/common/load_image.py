@@ -16,6 +16,7 @@ class LoadImage:
 
     Attributes:
         pixels: Fully decoded RGB image with the EXIF orientation already applied.
+        filepath: Path to the image file.
         format: Format PIL detected from the file content, for example "JPEG". None if unknown. Camera JPEGs with a
             multi-picture header are reported as "MPO".
         mode: PIL mode of the image as stored in the file, read before the conversion to RGB. Describes the source,
@@ -38,6 +39,7 @@ class LoadImage:
         exif_orientation: Orientation tag stored in the file (1 if missing or invalid, valid values are 1 to 8).
     """
     pixels: Image.Image
+    filepath: Path
     format: Optional[str]
     mode: str
     n_frames: int
@@ -76,6 +78,7 @@ class LoadImage:
 
             return cls(
                 pixels=ImageOps.exif_transpose(image).convert("RGB"),
+                filepath=filepath,
                 format=image.format,
                 mode=image.mode,
                 n_frames=getattr(image, "n_frames", 1),
