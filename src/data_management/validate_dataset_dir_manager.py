@@ -7,7 +7,7 @@ from loguru import logger
 
 from common.constants.class_labels import ClassLabels
 from common.constants.source_labels import SourceLabels
-from data_management.image_reference import DatasetFileReference
+from data_management.dataset_file_reference import DatasetFileReference
 
 
 class DatasetValidationStage(StrEnum):
