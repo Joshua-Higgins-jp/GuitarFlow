@@ -7,12 +7,12 @@ class DatabaseCRUD:
     """
     def __init__(
             self,
-            db: DatabaseManager
+            db_manager: DatabaseManager
     ) -> None:
         """
         Store the database handle without touching the database.
 
         Args:
-            db: A DatabaseManager whose schema has already been verified.
+            db_manager: A DatabaseManager whose schema has already been verified.
         """
-        self._db: DatabaseManager = db
+        self._db: DatabaseManager = db_manager
