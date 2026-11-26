@@ -226,10 +226,10 @@ class DatasetValidationDirFilesManager:
         for label, source, path in self._iter_raw_files():
             dataset_file_refs.add(
                 DatasetFileReference(
-                images_raw_dir=self.images_raw_dir,
-                label=label,
-                source=source,
-                filename=path.name
+                    images_raw_dir=self.images_raw_dir,
+                    label=label,
+                    source=source,
+                    filename=path.name
                 )
             )
         return frozenset(dataset_file_refs)
@@ -254,15 +254,3 @@ class DatasetValidationDirFilesManager:
             targets_set=frozenset(targets_set),
             non_targets_set=frozenset(non_targets_set)
         )
-
-
-from common.dirs_paths import _PROJECT_DIR
-from time import monotonic
-start_time = monotonic()
-logger.info(start_time)
-dataset_dir_files_mgr = DatasetValidationDirFilesManager(images_raw_dir=_PROJECT_DIR / "data" / "images_raw")
-dataset_target_sets: TargetsAndNonTargetsSets = dataset_dir_files_mgr.gen_target_sets()  # only this takes 0.021s
-end_time = monotonic()
-logger.info(end_time)
-dataset_target_sets.log_results()
-logger.info(f"time taken = {round((end_time - start_time), 3)}s")
