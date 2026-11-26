@@ -2,7 +2,7 @@ from hashlib import sha256
 from pathlib import Path
 
 
-def sha256_from_bytes(data: bytes) -> str:
+def sha256_from_bytes(bytes_data: bytes) -> str:
     """
     Compute the SHA-256 hex digest of raw bytes.
 
@@ -10,12 +10,12 @@ def sha256_from_bytes(data: bytes) -> str:
     network payloads) where the bytes are already buffered.
 
     Args:
-        data: Raw bytes to hash.
+        bytes_data: Raw bytes to hash.
 
     Returns:
         64-character lowercase hex digest string.
     """
-    return sha256(data).hexdigest()
+    return sha256(bytes_data).hexdigest()
 
 
 def sha256_from_file(filepath: Path) -> str:
