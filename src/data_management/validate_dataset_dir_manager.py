@@ -187,15 +187,6 @@ class DatasetValidationDirFilesManager:
         # If anything is unexpected, log it and raise to stop until the user has corrected their dataset.
         return ValidateDirStructureResult(results=unexpected_dir_events)
 
-
-    def validate_dir_structure(self) -> ValidateDirStructureResult:
-        # 1. Make the expected dir structure
-        self._create_image_raw_subdirectories()
-
-        # 2. Check only the expected dir structure exists. log unexpected events, return structured res object
-        return self._assert_images_raw_layout_is_valid()
-
-
     def _iter_raw_files(self) -> Iterator[tuple[ClassLabels, SourceLabels, Path]]:
         """
         Yield every regular file under images_raw_dir/<label>/<source>/, skipping ignored system files.
@@ -236,7 +227,11 @@ class DatasetValidationDirFilesManager:
 
     def gen_target_sets(self) -> TargetsAndNonTargetsSets:
         # 0. confirm images raw directory structure is valid
-        self.validate_dir_structure()
+        self._create_image_raw_subdirectories()
+
+        val_res: ValidateDirStructureResult = self._assert_images_raw_layout_is_valid()
+        if val_res.has_problems:
+            raise RuntimeError(val_res.runtime_error_str())
 
         # 1. init empty return sets
         targets_set: set[DatasetFileReference] = set()
