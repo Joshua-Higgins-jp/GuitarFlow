@@ -10,8 +10,12 @@ class SourceLabels(StrEnum):
     PIXABAY = "pixabay"
     REDDIT = "reddit"
     UNSPLASH = "unsplash"
-    MIXED = "mixed"
+    WALLPAPER_FLARE = "wallpaper_flare"
 
     @classmethod
     def as_tuple(cls) -> tuple[str, ...]:
         return tuple(member.value for member in cls)
+
+    @classmethod
+    def as_set(cls) -> set[str]:
+        return set(member.value for member in cls)
