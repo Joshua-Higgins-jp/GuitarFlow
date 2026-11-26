@@ -12,4 +12,4 @@ def gen_log_filepath(session_id: SessionID) -> Path:
     e.g.
         log_20251201_002734_<tz>_<job_name>.log
     """
-    return _LOGS_DIR / f"log__{session_id.session_id_str}.log"
+    return _LOGS_DIR / f"log__{session_id.session_id_job_name}.log"
