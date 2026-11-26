@@ -96,6 +96,9 @@ class LoadImage:
         that was rotated for real. This finds exact duplicates only. It is computed on first access and then cached,
         because hashing a large image is slow.
 
+        Use this for exact duplicate finding. Similar images, cropped images, re-encoded images will still
+        fail, so this is literally for like if you accidentily put images in 2 dirs, or into different labsls etc.
+
         Returns:
             A 64 character lowercase hex digest.
         """
