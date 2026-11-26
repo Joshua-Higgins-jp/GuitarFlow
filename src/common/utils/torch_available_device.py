@@ -2,7 +2,7 @@ from typing import Optional
 
 import torch
 
-from common.torch_devices import TorchDevices
+from common.constants.torch_devices import TorchDevices
 
 
 def torch_available_device(override_with: Optional[TorchDevices] = None) -> TorchDevices:
