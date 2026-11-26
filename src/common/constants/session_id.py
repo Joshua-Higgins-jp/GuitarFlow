@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from common.config import SESSION_ID_DT_STR_FORMAT, INGEST_RECONCILE_ID_FORMAT
+from common.config import SESSION_ID_DT_STR_FORMAT
 from common.constants.job_names import JobNames
 
 
