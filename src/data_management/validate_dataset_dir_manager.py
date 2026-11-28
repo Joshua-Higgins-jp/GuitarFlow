@@ -13,7 +13,7 @@ from data_management.dataset_file_reference import DatasetFileReference
 class DatasetValidationStage(StrEnum):
     FILESYSTEM = "filesystem"
     IMAGE = "image"
-    DUPLICATE = "duplicate"
+    DUPLICATE = "duplicate"  # TODO: actually use this or remove it. pls chk
 
 
 @dataclass(frozen=True)
@@ -44,12 +44,9 @@ class ValidateDirStructureResult:
     def num_problems(self) -> int:
         return len(self.results)
 
-    def log_results(self, relative_to_dir: Path) -> None:
+    def log_results(self) -> None:
         for result in self.results:
-            logger.warning(
-                f"Directory `{result.directory.relative_to(relative_to_dir)}` "
-                f"is {result.reason}"
-            )
+            logger.warning(f"Directory `{result.directory}` is {result.reason}")
 
     def runtime_error_str(self) -> str:
         return (
@@ -230,6 +227,7 @@ class DatasetValidationDirFilesManager:
         self._create_image_raw_subdirectories()
 
         val_res: ValidateDirStructureResult = self._assert_images_raw_layout_is_valid()
+        val_res.log_results()
         if val_res.has_problems:
             raise RuntimeError(val_res.runtime_error_str())
 
