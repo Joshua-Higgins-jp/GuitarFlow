@@ -1,7 +1,7 @@
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Self
 
 from loguru import logger
 
@@ -10,16 +10,17 @@ from data_management.db_spec import ColumnSpec, IndexSpec, EXPECTED_INDEXES, EXP
 
 """
 NOTE:
--- This code assumes there is only 1 table. If you ever expand to multiple tables, 
-    pleas revisit this and remove the hard-coded table name
+-- This code assumes there is only 1 table. If you ever expand to multiple tables,
+    please revisit this and remove the hard-coded table name
 """
+
 
 class SchemaMismatchError(RuntimeError):
     """
     Raised when an existing database table does not match the expected schema.
 
-    This usually means a schema change was made in code but the existing
-    database file was never migrated. The database is left untouched.
+    This usually means a schema change was made in code but the existing database file was never migrated. The
+    database is left untouched.
 
     Attributes:
         problems: One human-readable line per detected difference.
@@ -38,10 +39,10 @@ class SchemaMismatchError(RuntimeError):
 
 class DatabaseManager:
     """
-    Manages the SQLite database file backing the media processing queue.
+    Manages the SQLite database file holding the image records table.
 
-    Call ensure_ready() once at application start. After that, use the
-    connection() context manager to talk to the database.
+    Call ensure_ready() once at application start. After that, use the connection() context manager to talk to the
+    database.
     """
     def __init__(
             self,
@@ -60,8 +61,7 @@ class DatabaseManager:
         """
         Open a connection that commits on success and rolls back on error.
 
-        Rows are returned as sqlite3.Row so columns can be read by name.
-        The connection is always closed on exit.
+        Rows are returned as sqlite3.Row so columns can be read by name. The connection is always closed on exit.
 
         Yields:
             An open sqlite3.Connection.
@@ -81,17 +81,15 @@ class DatabaseManager:
 
     def ensure_ready(self) -> None:
         """
-        Make sure the database file and queue table exist and are valid.
+        Make sure the database file and image records table exist and are valid.
 
-        Creates the file (and any missing parent directories) when absent.
-        Creates the table when the file exists but has no table, which
-        covers a first run that was interrupted before the schema was
-        written. Always validates the table against the expected schema
-        before returning.
+        Creates the file (and any missing parent directories) when absent. Creates the table when the file exists but
+        has no table, which covers a first run that was interrupted before the schema was written. Always validates
+        the table against the expected schema before returning.
 
         Raises:
-            SchemaMismatchError: If the table exists but differs from the
-                expected schema. No automatic migration is attempted.
+            SchemaMismatchError: If the table exists but differs from the expected schema. No automatic migration is
+                attempted.
         """
         file_existed: bool = self.db_path.exists(follow_symlinks=False)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -102,10 +100,7 @@ class DatabaseManager:
                 self._create_schema(conn)
 
             elif not self._table_exists(conn):
-                logger.warning(
-                    f"Database file {self.db_path} exists but has no "
-                    f"'{DB_TABLE_NAME}' table, creating it"
-                )
+                logger.warning(f"Database file {self.db_path} exists but has no '{DB_TABLE_NAME}' table, creating it")
                 self._create_schema(conn)
 
             else:
@@ -119,13 +114,13 @@ class DatabaseManager:
     @staticmethod
     def _table_exists(conn: sqlite3.Connection) -> bool:
         """
-        Check whether the queue table is present in the database.
+        Check whether the image records table is present in the database.
 
         Args:
             conn: An open connection.
 
         Returns:
-            True if a table named TABLE_NAME exists.
+            True if a table named DB_TABLE_NAME exists.
         """
         row: Optional[sqlite3.Row] = conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
@@ -138,8 +133,8 @@ class DatabaseManager:
         """
         Run every CREATE statement inside the current transaction.
 
-        Statements are executed one at a time rather than with
-        executescript, which would commit implicitly and break atomicity.
+        Statements are executed one at a time rather than with executescript, which would commit implicitly and
+        break atomicity.
 
         Args:
             conn: An open connection.
@@ -150,7 +145,7 @@ class DatabaseManager:
     @staticmethod
     def _read_columns(conn: sqlite3.Connection) -> dict[str, ColumnSpec]:
         """
-        Read the actual column definitions of the queue table.
+        Read the actual column definitions of the image records table.
 
         Args:
             conn: An open connection.
@@ -172,8 +167,8 @@ class DatabaseManager:
     @staticmethod
     def _read_indexes(conn: sqlite3.Connection) -> set[IndexSpec]:
         """
-        Read the actual indexes of the queue table, including UNIQUE
-        constraint indexes that SQLite creates automatically.
+        Read the actual indexes of the image records table, including the indexes SQLite creates automatically for
+        UNIQUE constraints and a non-integer primary key.
 
         Args:
             conn: An open connection.
@@ -183,28 +178,28 @@ class DatabaseManager:
         """
         indexes: set[IndexSpec] = set()
         for index_row in conn.execute(f"PRAGMA index_list({DB_TABLE_NAME})").fetchall():
-            column_rows = conn.execute(
-                f"PRAGMA index_info({index_row['name']})"
-            ).fetchall()
-            ordered_names: tuple[str, ...] = tuple(
-                r["name"] for r in sorted(column_rows, key=lambda r: r["seqno"])
+            column_rows = conn.execute(f"PRAGMA index_info({index_row['name']})").fetchall()
+            ordered_names: tuple[str, ...] = tuple(r["name"] for r in sorted(column_rows, key=lambda r: r["seqno"]))
+            indexes.add(
+                IndexSpec(
+                    columns=ordered_names,
+                    unique=bool(index_row["unique"]),
+                    partial=bool(index_row["partial"]),
+                )
             )
-            indexes.add(IndexSpec(ordered_names, bool(index_row["unique"])))
         return indexes
 
     def _validate_schema(self, conn: sqlite3.Connection) -> None:
         """
         Compare the actual table against the expected columns and indexes.
 
-        Extra columns are treated as a mismatch. Extra indexes are allowed,
-        but every expected index must be present.
+        Extra columns are treated as a mismatch. Extra indexes are allowed, but every expected index must be present.
 
         Args:
             conn: An open connection.
 
         Raises:
-            SchemaMismatchError: If any difference is found. The error
-                lists every difference, not just the first.
+            SchemaMismatchError: If any difference is found. The error lists every difference, not just the first.
         """
         problems: list[str] = []
 
@@ -218,8 +213,7 @@ class DatabaseManager:
         for name in sorted(expected.keys() & actual.keys()):
             if expected[name] != actual[name]:
                 problems.append(
-                    f"column {name}: expected [{expected[name].describe()}], "
-                    f"found [{actual[name].describe()}]"
+                    f"column {name}: expected [{expected[name].describe()}], found [{actual[name].describe()}]"
                 )
 
         actual_indexes: set[IndexSpec] = self._read_indexes(conn)
@@ -228,21 +222,16 @@ class DatabaseManager:
                 problems.append(f"missing {index_spec.describe()}")
 
         if problems:
-            logger.error(
-                f"Schema validation failed for '{DB_TABLE_NAME}' "
-                f"with {len(problems)} problem(s)"
-            )
+            logger.error(f"Schema validation failed for '{DB_TABLE_NAME}' with {len(problems)} problem(s)")
             raise SchemaMismatchError(problems)
 
     def _log_schema(self, conn: sqlite3.Connection) -> None:
         """
         Log the CREATE statements SQLite has stored for every table and index.
 
-        This reads sqlite_master, so the output is the schema actually in
-        the database file, not the schema the code intended to create.
-        Tables are listed before indexes. Auto-generated indexes (such as
-        those behind UNIQUE constraints) have no stored statement and are
-        skipped, but the UNIQUE constraint itself is visible inside the
+        This reads sqlite_master, so the output is the schema actually in the database file, not the schema the code
+        intended to create. Tables are listed before indexes. Auto-generated indexes (such as those behind UNIQUE
+        constraints) have no stored statement and are skipped, but the UNIQUE constraint itself is visible inside the
         owning table's CREATE statement.
 
         Args:
@@ -258,12 +247,15 @@ class DatabaseManager:
         logger.info(f"Database schema as stored in {self.db_path}:\n{statements}")
 
     @classmethod
-    def init_database(cls, db_path: Path) -> 'DatabaseManager':
+    def init_database(cls, db_path: Path) -> Self:
         """
-        Create or verify the media queue database before any job runs.
+        Create or verify the image records database before any scan runs.
+
+        Args:
+            db_path: Location of the SQLite database file.
 
         Returns:
-            A MediaDatabase whose schema has been verified as valid.
+            A DatabaseManager whose schema has been verified as valid.
 
         Raises:
             SystemExit: With code 1 if the existing schema does not match.
