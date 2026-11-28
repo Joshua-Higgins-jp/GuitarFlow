@@ -13,6 +13,7 @@ SESSION_ID_DT_STR_FORMAT = "%Y%m%d_%H%M%S_%Z"
 
 DIRS_PATHS_LOG_NAME_WIDTH: int = 23
 DB_NAME: str = "image_dataset.sqlite3"
+DB_TABLE_NAME: str = "images"
 
 CLASS_NAMES_LIST: list[str] = ClassLabels.as_list()
 CLASS_TO_IDX: dict[str, int] = {name: idx for idx, name in enumerate(CLASS_NAMES_LIST)}
@@ -20,6 +21,5 @@ CLASS_TO_IDX: dict[str, int] = {name: idx for idx, name in enumerate(CLASS_NAMES
 IMAGENET_MEAN: list[float] = [0.485, 0.456, 0.406]
 IMAGENET_STD: list[float]  = [0.229, 0.224, 0.225]
 IMG_SIZE: tuple[int, int]  = (224, 224)
-
 
 TORCH_DEVICE_OVERRIDE__LOCAL: Optional[TorchDevices] = TorchDevices.MPS  # for mac
