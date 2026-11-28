@@ -1,12 +1,16 @@
+from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Callable, Optional, Union
 
 import numpy as np
 from PIL import Image
 from loguru import logger
 
+from common.image_metadata import ImageMetadata
 from common.load_image import LoadImage
 from data_management.dataset_file_reference import DatasetFileReference
+from data_management.image_record_model import ImageRecordModel
 from data_management.validate_dataset_dir_manager import TargetsAndNonTargetsSets, DatasetValidationStage
 
 _ANIMATION_FORMATS: frozenset[str] = frozenset({"GIF", "PNG", "WEBP"})  # PNG covers APNG; add "TIFF" to also reject multi-page TIFFs
@@ -28,25 +32,42 @@ class ImageCheckConfig:
     Thresholds for the dataset image checks.
 
     Attributes:
+        version: Version of the checks, written to every image record. Bump it by hand when a threshold or a check
+            changes.
         img_size: Training input size. Images with a shorter side below this fail.
         max_aspect_ratio: Longest side divided by shortest side, above which an image fails.
         min_std: Minimum standard deviation of pixel values (0 to 255 scale), below which an image is flat.
         min_robust_range: Minimum gap between the 1st and 99th percentile of pixel values.
         max_dominant_fraction: Fraction of pixels (0 to 1) sharing one quantised colour, above which an image fails.
         analysis_size: Longest side in pixels of the downscaled copy used for the statistics checks.
+        min_colour_spread: Mean gap between the largest and smallest of R, G and B (0 to 255 scale), below which an
+            image counts as greyscale.
     """
+    # TODO: validate each value. if possible, read in from config.py
+    version: str = "1"
+
     img_size: int = 224
     max_aspect_ratio: float = 4.0
     min_std: float = 5.0
     min_robust_range: float = 20.0
     max_dominant_fraction: float = 0.95
     analysis_size: int = 256
-
+    min_colour_spread: float = 2.0
 
 @dataclass(frozen=False, eq=False)  # eq=False keeps identity hashing, so results can live in a set
 class ImageCheckResult:
+    """
+    The outcome of every check on one file.
+
+    Attributes:
+        file_ref: The file that was checked.
+        failed_reasons: One entry per failed check, empty if the file passed.
+        pixel_hash: SHA-256 of the decoded pixels, used by the duplicate check. None if the image couldn't be loaded
+            or hashed.
+    """
     file_ref: DatasetFileReference
     failed_reasons: list[str] = field(default_factory=list)
+    pixel_hash: Optional[str] = None
 
     @property
     def passed(self) -> bool:
@@ -63,7 +84,11 @@ class ImageCheckResult:
         else:
             return "PASSED"
 
-    def append_fail_reason(self, stage: DatasetValidationStage, reason: str) -> None:
+    def append_fail_reason(
+            self,
+            stage: DatasetValidationStage,
+            reason: str
+    ) -> None:
         self.failed_reasons.append(f"{stage.value}: {reason}")
 
     def log_results(self) -> None:
@@ -80,7 +105,11 @@ class ImageCheckResult:
 @dataclass(frozen=True)
 class ImageChecksResultsSets:
     """
-    docstrnng
+    The results of every check, split into files that passed and files that failed.
+
+    Attributes:
+        passed: Targets with no failed checks.
+        failed: Targets with at least one failed check, plus every non target.
     """
     passed: frozenset[ImageCheckResult]
     failed: frozenset[ImageCheckResult]
@@ -127,10 +156,10 @@ class DatasetValidationImageCheckManager:
             dataset_targets_sets: The targets and non targets found when the directory was analysed.
             config: Thresholds for the checks.
         """
-        self._dataset_targets_sets: TargetsAndNonTargetsSets = dataset_targets_sets
+        # self._dataset_targets_sets: TargetsAndNonTargetsSets = dataset_targets_sets
 
-        self.targets_set: frozenset[DatasetFileReference] = self._dataset_targets_sets.targets_set
-        self.non_targets_set: frozenset[DatasetFileReference] = self._dataset_targets_sets.non_targets_set
+        self.targets_set: frozenset[DatasetFileReference] = dataset_targets_sets.targets_set
+        self.non_targets_set: frozenset[DatasetFileReference] = dataset_targets_sets.non_targets_set
 
         self.config: ImageCheckConfig = config
 
@@ -147,6 +176,7 @@ class DatasetValidationImageCheckManager:
             self.check_flat,
             self.check_robust_range,
             self.check_dominant_colour,
+            self.check_greyscale,
         )
 
     @staticmethod
@@ -328,16 +358,33 @@ class DatasetValidationImageCheckManager:
             return f"{dominant:.1%} of pixels are one colour"
         return None
 
+    def check_greyscale(self, analysis_array: np.ndarray) -> Optional[str]:
+        """Fail greyscale images, including greyscale photos saved as RGB.
+
+        Users will photograph guitars in colour, so grey training images don't look like real input. Checking the
+        pixels instead of the mode also catches modes "L" and "1", which are already converted to RGB at this point.
+
+        Args:
+            analysis_array: The downscaled pixel array.
+
+        Returns:
+            A reason string if the image has almost no colour, otherwise None.
+        """
+        spread = float((analysis_array.max(axis=-1) - analysis_array.min(axis=-1)).mean())  # max >= min, so no uint8 underflow
+        if spread < self.config.min_colour_spread:
+            return f"mean colour spread {spread:.1f} is below {self.config.min_colour_spread}"
+        return None
+
     # ------------------------------------------------------------------ running the checks
 
     def _check_target(self, target_image_ref: DatasetFileReference) -> ImageCheckResult:
-        """Load one target image and run every check on it, recording each failure.
+        """Load one target image, run every per-image check on it and record its pixel hash.
 
         Args:
             target_image_ref: The target image to check.
 
         Returns:
-            The result holding every failed reason, which is empty if the image passed.
+            The result holding every failed reason (empty if the image passed) and the pixel hash.
         """
         result = ImageCheckResult(file_ref=target_image_ref)
 
@@ -351,6 +398,16 @@ class DatasetValidationImageCheckManager:
                 reason=f"Couldn't open image, cause={e}"
             )
             return result  # nothing else can run without a loaded image
+
+        # keep only the hash, so the decoded pixels can be freed once this method returns
+        try:
+            result.pixel_hash = load_image.pixel_sha256
+
+        except Exception as e:
+            result.append_fail_reason(
+                stage=DatasetValidationStage.IMAGE,
+                reason=f"duplicates: couldn't hash pixels, cause={e}"
+            )
 
         for check in self._image_checks:
             self._run_one_check(
@@ -383,6 +440,42 @@ class DatasetValidationImageCheckManager:
         return result
 
     @staticmethod
+    def flag_duplicates(results: list[ImageCheckResult]) -> int:
+        """Flag every result whose decoded pixels exactly match at least one other result.
+
+        Every member of a duplicate group is flagged, not just the extra copies, so all of them go to Quarantine.
+        Results without a pixel_hash (the image couldn't be loaded or hashed) are skipped.
+
+        Args:
+            results: The results of the per-image checks for every target. Flagged results are changed in place.
+
+        Returns:
+            The number of results flagged as duplicates.
+        """
+        groups: defaultdict[str, list[ImageCheckResult]] = defaultdict(list)
+        for result in results:
+            if result.pixel_hash is not None:
+                groups[result.pixel_hash].append(result)
+
+        num_flagged = 0
+        for pixel_hash, group in groups.items():
+            if len(group) < 2:
+                continue
+
+            for result in group:
+                # full paths, since the same filename in two dirs is the most likely duplicate
+                others = sorted(str(other.file_ref.resolved_filepath) for other in group if other is not result)
+                result.append_fail_reason(
+                    stage=DatasetValidationStage.IMAGE,
+                    reason=f"duplicates: same pixels as {', '.join(others)}"
+                )
+
+            num_flagged += len(group)
+            logger.warning(f"Found {len(group)} copies with pixel hash {pixel_hash[:12]}")
+
+        return num_flagged
+
+    @staticmethod
     def _run_one_check(
             result: ImageCheckResult,
             check: Callable[..., Optional[str]],
@@ -397,7 +490,7 @@ class DatasetValidationImageCheckManager:
         """
         name = check.__name__.removeprefix("check_")
         try:
-            reason = check(check_input)
+            reason: Optional[str] = check(check_input)
 
         except Exception as e:
             result.append_fail_reason(
@@ -412,23 +505,61 @@ class DatasetValidationImageCheckManager:
                 reason=f"{name}: {reason}"
             )
 
-    # TODO: implement  the check_duplicates_via_image_hash from LoadImage.hash and compare to all other images??
-
+    # def run_checks(self) -> ImageChecksResultsSets:
+    #     """
+    #     Run every check on every target, and mark every non target as not a target.
+    #
+    #     Returns:
+    #         The results split into passed (targets with no failed checks) and failed (failed targets plus all non
+    #         targets).
+    #     """
+    #     passed: set[ImageCheckResult] = set()
+    #     failed: set[ImageCheckResult] = set()
+    #
+    #     # Some targets can fail checks, so they move to failed
+    #     for target_image_ref in self.targets_set:
+    #         check_result = self._check_target(target_image_ref=target_image_ref)
+    #         check_result.log_results()
+    #         if check_result.passed:
+    #             passed.add(check_result)
+    #         else:
+    #             failed.add(check_result)
+    #
+    #     # Non targets come from the failed dir, so they fail by default
+    #     for non_target_ref in self.non_targets_set:
+    #         non_target_check = ImageCheckResult(file_ref=non_target_ref)
+    #         non_target_check.append_fail_reason(stage=DatasetValidationStage.IMAGE, reason="Not a target")
+    #         non_target_check.log_results()
+    #         failed.add(non_target_check)
+    #
+    #     return ImageChecksResultsSets(
+    #         passed=frozenset(passed),
+    #         failed=frozenset(failed)
+    #     )
 
     def run_checks(self) -> ImageChecksResultsSets:
         """
-        Run every check on every target, and mark every non target as not a target.
+        Run every check on every target, flag duplicate targets, and mark every non target as not a target.
 
         Returns:
             The results split into passed (targets with no failed checks) and failed (failed targets plus all non
             targets).
         """
+        logger.info(f"Running image checks version {self.config.version}")
+
         passed: set[ImageCheckResult] = set()
         failed: set[ImageCheckResult] = set()
 
+        # Per-image checks first, since the duplicate check needs every target's hash
+        target_results: list[ImageCheckResult] = [
+            self._check_target(target_image_ref=target_image_ref) for target_image_ref in self.targets_set
+        ]
+
+        num_duplicates = self.flag_duplicates(results=target_results)
+        logger.info(f"Flagged {num_duplicates} targets as duplicates")
+
         # Some targets can fail checks, so they move to failed
-        for target_image_ref in self.targets_set:
-            check_result = self._check_target(target_image_ref=target_image_ref)
+        for check_result in target_results:
             check_result.log_results()
             if check_result.passed:
                 passed.add(check_result)
@@ -446,3 +577,60 @@ class DatasetValidationImageCheckManager:
             passed=frozenset(passed),
             failed=frozenset(failed)
         )
+
+
+def build_image_records(
+        passed_results: frozenset[ImageCheckResult],
+        checks_version: str,
+        scanned_at: datetime,
+) -> list[ImageRecordModel]:
+    """Reload every image that passed the checks and build its image record.
+
+    Run this after the failed images have been moved to Quarantine. Each image is loaded again instead of reusing
+    anything from the checks, so the record classes don't depend on the check pipeline. Reloading also confirms that
+    each file is still in place and unchanged since it was checked. Any file that isn't is logged and skipped, so it
+    never becomes an ACTIVE record.
+
+    Args:
+        passed_results: The passed set from ImageChecksResultsSets.
+        checks_version: ImageCheckConfig.version of this scan.
+        scanned_at: Timezone aware time of the scan, shared by every record.
+
+    Returns:
+        One record per image that is still in place and unchanged, in no particular order.
+    """
+    records: list[ImageRecordModel] = []
+    num_skipped = 0
+
+    for result in passed_results:
+        filepath = result.file_ref.resolved_filepath
+
+        if not filepath.exists():
+            logger.error(f"Skipping {filepath}: it passed the checks but is no longer there")
+            num_skipped += 1
+            continue
+
+        try:
+            metadata = ImageMetadata.from_path(filepath=filepath)
+
+        except Exception as e:
+            logger.error(f"Skipping {filepath}: couldn't reload it, cause={e}")
+            num_skipped += 1
+            continue
+
+        if metadata.pixel_hash != result.pixel_hash:
+            logger.error(f"Skipping {filepath}: its pixels changed after it was checked")
+            num_skipped += 1
+            continue
+
+        try:
+            records.append(
+                ImageRecordModel.from_metadata(metadata=metadata, checks_version=checks_version, scanned_at=scanned_at)
+            )
+
+        except ValueError as e:
+            logger.error(f"Skipping {filepath}: couldn't build its record, cause={e}")
+            num_skipped += 1
+
+    logger.info(f"Built {len(records)} image records, skipped {num_skipped}")
+    return records
