@@ -8,6 +8,9 @@ from common.dirs_paths import DirsPaths
 from common.logging_add_sink import add_log_sink
 from common.logging_set_log_filename import gen_log_filepath
 from common.utils.dt_get import get_dt_now_jst
+from data_management.db_crud import DatabaseCRUD
+from data_management.db_manager import DatabaseManager
+from data_management.image_record_model import ImageRecordModel
 from data_management.quarantine_manager import QuarantineManager
 from data_management.validate_dataset_dir_manager import (
     DatasetValidationDirFilesManager,
@@ -16,7 +19,7 @@ from data_management.validate_dataset_dir_manager import (
 from data_management.validate_image_manager import (
     DatasetValidationImageCheckManager,
     ImageCheckConfig,
-    ImageChecksResultsSets
+    ImageChecksResultsSets, build_image_records
 )
 
 
@@ -49,9 +52,10 @@ def pipeline_01__clean_dataset(dry_run: bool = True) -> None:
     target_sets: TargetsAndNonTargetsSets = file_manager.gen_target_sets()
     target_sets.log_results()
 
+    img_chk_config = ImageCheckConfig()
     image_validation = DatasetValidationImageCheckManager(
         dataset_targets_sets=target_sets,
-        config=ImageCheckConfig(),
+        config=img_chk_config,
     )
     image_check_sets: ImageChecksResultsSets = image_validation.run_checks()
 
@@ -61,17 +65,19 @@ def pipeline_01__clean_dataset(dry_run: bool = True) -> None:
     )
     quarantine_report_csv: Path = quarantine_manager.run_quarantine(quarantine_csv_filename=session_id.session_id_quarantine)
 
-    # # 4. Init the database manager, which validates database
-    # db_manager = DatabaseManager.init_database(db_path=dirs_paths.DB_PATH)
-    #
-    # # 5. Init the crud manager
-    # db_crud = DatabaseCRUD(db_manager=db_manager)
+    # 4. Init the database manager, which validates database
+    db_manager = DatabaseManager.init_database(db_path=dirs_paths.DB_PATH)
 
-    # TODO: then you'd insert the surviging image refs from data quality pass into the database.
-    # At which point, you're ready to move on to model training!
-    #   prepare dataset splits, collect metrics,
+    # 5. Init the crud manager
+    db_crud = DatabaseCRUD(db_manager=db_manager)
 
-    # TODO: current issue - deciding how to implement logic between classes, or all in 1 class,
+    passed_image_records: list[ImageRecordModel] = build_image_records(
+        passed_results=image_check_sets.passed,
+        checks_version=img_chk_config.version,
+        scanned_at=session_id.session_start_time,
+    )
+
+    db_crud.sync_scan(records=passed_image_records)
 
 
 if __name__ == "__main__":
